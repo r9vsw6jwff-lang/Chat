@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .red-glow-border { box-shadow: 0 0 20px rgba(220, 38, 38, 0.2); }
+        .red-glow-input:focus { box-shadow: 0 0 15px rgba(220, 38, 38, 0.3); }
+    </style>
+</head>
+<body class="bg-black text-white h-dvh flex items-center justify-center overflow-hidden font-sans">
+
+    <!-- 1. ЭКРАН ВХОДА (Пароль) -->
+    <div id="login-screen" class="w-full h-full flex flex-col justify-center items-center p-4">
+        <div class="w-full max-w-md bg-zinc-950 p-8 rounded-3xl red-glow-border text-center flex flex-col items-center">
+            
+            <div class="w-16 h-16 rounded-full bg-red-950/60 border border-red-600/50 flex items-center justify-center mb-6 shadow-lg">
+                <i class="fa-solid fa-lock text-red-500 text-2xl"></i>
+            </div>
+            
+            <h1 class="text-2xl font-bold tracking-tight text-white mb-6">Вход</h1>
+            
+            <form id="password-form" class="w-full flex flex-col gap-4">
+                <div class="relative w-full">
+                    <input type="password" id="password-input" placeholder="Пароль" required autocomplete="current-password"
+                        class="w-full bg-zinc-900 border border-zinc-800 text-center text-xl tracking-[0.3em] font-mono text-white placeholder-zinc-600 rounded-2xl py-3 px-4 focus:outline-none focus:border-red-600 red-glow-input transition-all">
+                </div>
+                
+                <button type="submit" 
+                    class="w-full bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-semibold py-3 rounded-2xl transition-all shadow-lg shadow-red-950 flex items-center justify-center gap-2 cursor-pointer">
+                    <span>Войти</span>
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                </button>
+            </form>
+
+            <div id="login-error" class="hidden mt-4 p-3 bg-red-950/80 border border-red-800 text-red-300 text-xs rounded-xl w-full">
+                Неверный пароль!
+            </div>
+            <div id="full-error" class="hidden mt-4 p-3 bg-amber-950/80 border border-amber-800 text-amber-300 text-xs rounded-xl w-full">
+                Превышен лимит пользователей (максимум 5).
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. ГЛАВНОЕ ОКНО ЧАТА -->
+    <div id="chat-screen" class="hidden w-full h-full flex flex-col bg-black max-w-4xl border-x border-zinc-900 shadow-2xl overflow-hidden relative">
+        
+        <!-- Верхняя шапка чата -->
+        <div class="h-16 border-b border-zinc-900 px-4 md:px-6 flex items-center justify-between bg-zinc-950/90 backdrop-blur z-10">
+            <div class="flex items-center gap-3">
+                <h2 class="font-bold text-lg text-white">Чат</h2>
+                <span id="online-badge" class="text-[11px] bg-emerald-950 border border-emerald-800 text-emerald-400 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 font-medium">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="online-count">1</span>
+                </span>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <!-- Кнопка «Профиль / Меню» -->
+                <button id="open-profile-btn" type="button" title="Мой Профиль" 
+                    class="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white text-xs px-3 py-2 rounded-full transition-all cursor-pointer">
+                    <img id="header-avatar-preview" src="https://placehold.co/100x100/18181b/ef4444?text=Я" class="w-6 h-6 rounded-full object-cover">
+                    <span id="header-name-display" class="max-w-[100px] truncate font-medium">Профиль</span>
+                    <i class="fa-solid fa-gear text-zinc-400 text-xs ml-1"></i>
+                </button>
+                
+                <!-- Кнопка Выхода -->
+                <button id="logout-btn" type="button" title="Выйти" class="w-9 h-9 bg-zinc-900 hover:bg-red-950/60 hover:text-red-400 border border-zinc-800 text-zinc-400 rounded-full flex items-center justify-center transition-all cursor-pointer">
+                    <i class="fa-solid fa-right-from-bracket text-xs"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Область Сообщений -->
+        <div id="messages-container" class="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col gap-4 bg-zinc-950">
+            <!-- Сообщения генерируются скриптом -->
+        </div>
+
+        <!-- Индикатор Записи Голоса -->
+        <div id="voice-recording-bar" class="hidden bg-red-950/90 border-t border-red-900/50 px-4 py-2 flex items-center justify-between text-xs text-red-300 z-10">
+            <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                <span>Идет запись... <b id="recording-timer" class="font-mono ml-1">0:00</b></span>
+            </div>
+            <button id="cancel-voice-btn" type="button" class="text-zinc-400 hover:text-white px-3 py-1 rounded-full bg-zinc-900 cursor-pointer">Отмена</button>
+        </div>
+
+        <!-- Нижняя панель ввода -->
+        <div class="p-3 md:p-4 bg-zinc-950 border-t border-zinc-900 z-10">
+            <form id="message-form" class="flex items-center gap-2">
+                <!-- Кнопка «Фотография» -->
+                <label title="Отправить фото" class="w-11 h-11 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0">
+                    <i class="fa-solid fa-image text-base text-red-500"></i>
+                    <input type="file" id="chat-photo-input" accept="image/*" class="hidden">
+                </label>
+
+                <!-- Поле ввода текста -->
+                <div class="flex-1 relative">
+                    <input type="text" id="message-input" autocomplete="off" placeholder="Напишите сообщение..." 
+                        class="w-full bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-500 text-sm py-3 pl-4 pr-4 rounded-full focus:outline-none focus:border-red-600 red-glow-input transition-all">
+                </div>
+
+                <!-- Кнопка «Голосовое сообщение» -->
+                <button type="button" id="voice-btn" title="Голосовое сообщение"
+                    class="w-11 h-11 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-full flex items-center justify-center transition-all flex-shrink-0 cursor-pointer">
+                    <i class="fa-solid fa-microphone text-base"></i>
+                </button>
+
+                <!-- Кнопка «Отправить» -->
+                <button type="submit" id="send-btn" title="Отправить"
+                    class="w-11 h-11 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center transition-all shadow-lg shadow-red-950/50 flex-shrink-0 cursor-pointer">
+                    <i class="fa-solid fa-paper-plane text-sm"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО: Мой Профиль -->
+    <div id="my-profile-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden">
+        <div class="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 w-full max-w-sm relative shadow-2xl">
+            <button id="close-my-profile-modal-btn" type="button" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-lg font-bold text-white mb-4 text-center">Мой Профиль</h3>
+            
+            <div class="flex flex-col items-center gap-4 mb-6">
+                <img id="my-avatar-preview" src="https://placehold.co/100x100/18181b/ef4444?text=Я" 
+                     class="w-24 h-24 rounded-full object-cover border-2 border-red-600 shadow-lg">
+                
+                <label class="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs py-2 px-4 rounded-xl border border-zinc-800 cursor-pointer transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-camera text-red-500"></i> Изменить фотографию
+                    <input type="file" id="avatar-file-input" accept="image/*" class="hidden">
+                </label>
+            </div>
+
+            <div class="mb-6">
+                <label class="text-xs text-zinc-400 mb-2 block">Никнейм:</label>
+                <input type="text" id="profile-name-input" placeholder="Введите имя..." value="Пользователь"
+                       class="w-full bg-zinc-900 border border-zinc-800 text-sm text-white px-4 py-2.5 rounded-xl focus:outline-none focus:border-red-600 transition-all font-medium">
+            </div>
+
+            <button type="button" id="save-profile-btn" class="w-full bg-red-600 hover:bg-red-700 text-white text-sm py-3 rounded-xl font-medium transition-all shadow-lg shadow-red-950 cursor-pointer">
+                Сохранить настройки
+            </button>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО: Профиль участника -->
+    <div id="user-profile-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden">
+        <div class="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 w-full max-w-sm text-center relative shadow-2xl">
+            <button id="close-profile-modal-btn" type="button" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <img id="profile-modal-avatar" src="" class="w-24 h-24 rounded-full object-cover border-2 border-red-600 mx-auto mb-4 shadow-lg">
+            <h3 id="profile-modal-name" class="text-xl font-bold text-white mb-1">...</h3>
+            <div id="profile-modal-status" class="text-xs">...</div>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО: Просмотр Фото -->
+    <div id="image-view-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md hidden cursor-pointer">
+        <button id="close-image-modal-btn" type="button" class="absolute top-4 right-4 text-white text-2xl z-10 p-2 cursor-pointer">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <img id="modal-full-image" src="" class="max-w-full max-h-full rounded-2xl object-contain shadow-2xl red-glow-border">
+    </div>
+
+    <!-- Уведомление (Toast) -->
+    <div id="toast-notification" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-red-950 border border-red-600 text-white text-xs px-4 py-2.5 rounded-full shadow-2xl hidden transition-all">
+        <span id="toast-text"></span>
+    </div>
+
+    <!-- Firebase SDK & Скрипт логики -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const SECRET_PASSWORD = "846881";
+        const appId = 'secret-chat-v3';
+        
+        // Ваш Firebase конфигурационный блок
+        const firebaseConfig = {
+            apiKey: "AIzaSyA5WJE3afisQ-Ue6w8EwLq1Bnz-Gjq5ICI",
+            authDomain: "chat-14abe.firebaseapp.com",
+            projectId: "chat-14abe",
+            storageBucket: "chat-14abe.firebasestorage.app",
+            messagingSenderId: "412240777047",
+            appId: "1:412240777047:web:dcda1e2736c09e2777b812",
+            measurementId: "G-JR38HQMKH3"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const USER_THEMES = [
+            { bg: 'bg-red-950/70', border: 'border-red-600/50', text: 'text-red-400' },
+            { bg: 'bg-blue-950/70', border: 'border-blue-600/50', text: 'text-blue-400' },
+            { bg: 'bg-emerald-950/70', border: 'border-emerald-600/50', text: 'text-emerald-400' },
+            { bg: 'bg-purple-950/70', border: 'border-purple-600/50', text: 'text-purple-400' },
+            { bg: 'bg-amber-950/70', border: 'border-amber-600/50', text: 'text-amber-400' }
+        ];
+
+        let currentUser = null;
+        let myProfile = { displayName: 'Участник', photoURL: '' };
+        let onlineUsersMap = {};
+
+        // Генерация постоянного ID устройства
+        function getDeviceId() {
+            let deviceId = localStorage.getItem('chat_device_identity_id');
+            if (!deviceId) {
+                deviceId = 'dev_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
+                localStorage.setItem('chat_device_identity_id', deviceId);
+            }
+            return deviceId;
+        }
+        const currentDeviceId = getDeviceId();
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-notification');
+            document.getElementById('toast-text').textContent = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordingInterval = null;
+        let recordingSeconds = 0;
+        let isRecording = false;
+
+        const loginScreen = document.getElementById('login-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const passwordForm = document.getElementById('password-form');
+        const passwordInput = document.getElementById('password-input');
+        const loginError = document.getElementById('login-error');
+
+        const openProfileBtn = document.getElementById('open-profile-btn');
+        const myProfileModal = document.getElementById('my-profile-modal');
+        const closeMyProfileModalBtn = document.getElementById('close-my-profile-modal-btn');
+        const profileNameInput = document.getElementById('profile-name-input');
+        const avatarFileInput = document.getElementById('avatar-file-input');
+        const myAvatarPreview = document.getElementById('my-avatar-preview');
+        const headerAvatarPreview = document.getElementById('header-avatar-preview');
+        const headerNameDisplay = document.getElementById('header-name-display');
+        const saveProfileBtn = document.getElementById('save-profile-btn');
+
+        const onlineCount = document.getElementById('online-count');
+        const messagesContainer = document.getElementById('messages-container');
+        const messageForm = document.getElementById('message-form');
+        const messageInput = document.getElementById('message-input');
+
+        const voiceBtn = document.getElementById('voice-btn');
+        const voiceRecordingBar = document.getElementById('voice-recording-bar');
+        const recordingTimer = document.getElementById('recording-timer');
+        const cancelVoiceBtn = document.getElementById('cancel-voice-btn');
+        const chatPhotoInput = document.getElementById('chat-photo-input');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        const imageViewModal = document.getElementById('image-view-modal');
+        const modalFullImage = document.getElementById('modal-full-image');
+        const userProfileModal = document.getElementById('user-profile-modal');
+
+        // Вход по паролю
+        passwordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (passwordInput.value.trim() === SECRET_PASSWORD) {
+                loginError.classList.add('hidden');
+                await signInAnonymously(auth);
+            } else {
+                loginError.classList.remove('hidden');
+            }
+        });
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                loginScreen.classList.add('hidden');
+                chatScreen.classList.remove('hidden');
+
+                // Загружаем сохраненный профиль устройства, если есть
+                let savedProfiles = {};
+                try { savedProfiles = JSON.parse(localStorage.getItem('chat_profiles') || '{}'); } catch(e){}
+                
+                if (savedProfiles[currentDeviceId]) {
+                    myProfile = savedProfiles[currentDeviceId];
+                } else {
+                    myProfile.displayName = `Участник #${currentDeviceId.substring(4, 8)}`;
+                }
+
+                updateUIProfileData();
+                await updateOnlineStatus(true);
+
+                listenToOnlineUsers();
+                listenToMessages();
+
+                window.addEventListener('beforeunload', () => updateOnlineStatus(false));
+            }
+        });
+
+        function updateUIProfileData() {
+            headerNameDisplay.textContent = myProfile.displayName;
+            profileNameInput.value = myProfile.displayName;
+            if (myProfile.photoURL) {
+                myAvatarPreview.src = myProfile.photoURL;
+                headerAvatarPreview.src = myProfile.photoURL;
+            }
+        }
+
+        // Сохранение профиля
+        saveProfileBtn.addEventListener('click', async () => {
+            const name = profileNameInput.value.trim();
+            if (name) {
+                myProfile.displayName = name;
+            }
+            updateUIProfileData();
+
+            let savedProfiles = {};
+            try { savedProfiles = JSON.parse(localStorage.getItem('chat_profiles') || '{}'); } catch(e){}
+            savedProfiles[currentDeviceId] = myProfile;
+            localStorage.setItem('chat_profiles', JSON.stringify(savedProfiles));
+
+            await updateOnlineStatus(true);
+            myProfileModal.classList.add('hidden');
+            showToast('Профиль сохранен!');
+        });
+
+        avatarFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 1.5 * 1024 * 1024) {
+                showToast('Максимальный размер фото 1.5 МБ');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                myProfile.photoURL = evt.target.result;
+                myAvatarPreview.src = myProfile.photoURL;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        openProfileBtn.addEventListener('click', () => myProfileModal.classList.remove('hidden'));
+        closeMyProfileModalBtn.addEventListener('click', () => myProfileModal.classList.add('hidden'));
+
+        async function updateOnlineStatus(isOnline) {
+            if (!currentUser) return;
+            const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', currentDeviceId);
+            try {
+                await setDoc(userRef, {
+                    uid: currentUser.uid,
+                    deviceId: currentDeviceId,
+                    displayName: myProfile.displayName,
+                    photoURL: myProfile.photoURL,
+                    isOnline: isOnline,
+                    lastSeen: Date.now()
+                }, { merge: true });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function listenToOnlineUsers() {
+            const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+            onSnapshot(usersCol, (snapshot) => {
+                const now = Date.now();
+                let activeCount = 0;
+                onlineUsersMap = {};
+
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    onlineUsersMap[data.deviceId || data.uid] = data;
+                    // Считаем онлайн, если была активность за последние 30 секунд
+                    if (data.isOnline && (now - (data.lastSeen || 0) < 30000)) {
+                        activeCount++;
+                    }
+                });
+                onlineCount.textContent = Math.max(1, activeCount);
+            });
+        }
+
+        function getUserTheme(uid) {
+            if (uid === currentUser?.uid || uid === currentDeviceId) return USER_THEMES[0];
+            let hash = 0;
+            for (let i = 0; i < uid.length; i++) hash = uid.charCodeAt(i) + ((hash << 5) - hash);
+            return USER_THEMES[(Math.abs(hash) % 4) + 1];
+        }
+
+        // Сообщения с автоудалением через 24 часа
+        function listenToMessages() {
+            const messagesCol = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+
+            onSnapshot(messagesCol, (snapshot) => {
+                const now = Date.now();
+                const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+                const docs = [];
+
+                snapshot.forEach(docSnap => {
+                    const data = docSnap.data();
+                    const createdAt = data.createdAt || 0;
+
+                    if (now - createdAt > TWENTY_FOUR_HOURS) {
+                        deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'messages', docSnap.id)).catch(() => {});
+                    } else {
+                        docs.push({ id: docSnap.id, ...data });
+                    }
+                });
+
+                docs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+                messagesContainer.innerHTML = '';
+                docs.forEach(msg => renderMessage(msg));
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            });
+        }
+
+        function renderMessage(msg) {
+            const isMe = msg.deviceId === currentDeviceId || msg.uid === currentUser?.uid;
+            const theme = getUserTheme(msg.deviceId || msg.uid);
+            
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = `flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`;
+
+            const formattedTime = msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+            let contentHTML = '';
+            if (msg.type === 'voice') {
+                contentHTML = `
+                    <div class="flex items-center gap-3 py-1">
+                        <button type="button" class="voice-play-btn w-9 h-9 rounded-full ${isMe ? 'bg-red-600' : 'bg-zinc-800'} flex items-center justify-center text-white flex-shrink-0 hover:opacity-80 transition-opacity cursor-pointer">
+                            <i class="fa-solid fa-play text-xs"></i>
+                        </button>
+                        <audio src="${msg.audioData}" preload="auto" class="hidden"></audio>
+                        <div class="flex flex-col">
+                            <span class="text-xs font-medium text-white">Голосовое</span>
+                            <span class="text-[10px] text-zinc-400">Нажмите чтобы послушать</span>
+                        </div>
+                    </div>
+                `;
+            } else if (msg.type === 'image') {
+                contentHTML = `
+                    <div class="overflow-hidden rounded-xl cursor-pointer">
+                        <img src="${msg.imageData}" class="chat-photo-thumbnail max-w-xs max-h-60 rounded-xl object-cover hover:opacity-90 transition-opacity" alt="Фотография">
+                    </div>
+                `;
+            } else {
+                contentHTML = `<p class="text-sm text-white break-words">${escapeHTML(msg.text)}</p>`;
+            }
+
+            messageWrapper.innerHTML = `
+                <img src="${msg.photoURL || 'https://placehold.co/100x100/18181b/ef4444?text=User'}" 
+                     class="w-8 h-8 rounded-full object-cover border border-zinc-800 flex-shrink-0 mt-1 cursor-pointer hover:scale-105 transition-transform"
+                     onerror="this.src='https://placehold.co/100x100/18181b/ef4444?text=User'">
+                <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
+                    <span class="text-[11px] font-semibold text-zinc-400 mb-1 px-1">${escapeHTML(msg.displayName || 'Пользователь')}</span>
+                    <div class="${theme.bg} border ${theme.border} p-3 rounded-2xl ${isMe ? 'rounded-tr-none' : 'rounded-tl-none'} shadow-md w-full">
+                        ${contentHTML}
+                        <div class="text-[9px] text-zinc-400 text-right mt-1">${formattedTime}</div>
+                    </div>
+                </div>
+            `;
+
+            if (msg.type === 'voice') {
+                const playBtn = messageWrapper.querySelector('.voice-play-btn');
+                const audioEl = messageWrapper.querySelector('audio');
+                const icon = playBtn.querySelector('i');
+
+                playBtn.addEventListener('click', () => {
+                    if (audioEl.paused) {
+                        document.querySelectorAll('audio').forEach(a => { if (a !== audioEl) { a.pause(); a.currentTime = 0; } });
+                        audioEl.play().catch(e => console.error(e));
+                        icon.className = 'fa-solid fa-pause text-xs';
+                    } else {
+                        audioEl.pause();
+                        icon.className = 'fa-solid fa-play text-xs';
+                    }
+                });
+                audioEl.addEventListener('ended', () => { icon.className = 'fa-solid fa-play text-xs'; });
+            }
+
+            if (msg.type === 'image') {
+                messageWrapper.querySelector('.chat-photo-thumbnail').addEventListener('click', () => {
+                    modalFullImage.src = msg.imageData;
+                    imageViewModal.classList.remove('hidden');
+                });
+            }
+
+            const openAction = () => {
+                const userData = onlineUsersMap[msg.deviceId || msg.uid] || { displayName: msg.displayName, photoURL: msg.photoURL, isOnline: false };
+                openUserProfileModal(userData);
+            };
+
+            messageWrapper.querySelector('img').addEventListener('click', openAction);
+            messageWrapper.querySelector('span').addEventListener('click', openAction);
+
+            messagesContainer.appendChild(messageWrapper);
+        }
+
+        async function sendNewMessage(payload) {
+            const messagesCol = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+            await addDoc(messagesCol, {
+                uid: currentUser.uid,
+                deviceId: currentDeviceId,
+                displayName: myProfile.displayName,
+                photoURL: myProfile.photoURL,
+                createdAt: Date.now(),
+                ...payload
+            });
+        }
+
+        // Отправка фото
+        chatPhotoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('Максимальный размер фото 2 МБ');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = async (evt) => {
+                await sendNewMessage({ imageData: evt.target.result, type: 'image' });
+            };
+            reader.readAsDataURL(file);
+            chatPhotoInput.value = '';
+        });
+
+        // Отправка текста
+        messageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const text = messageInput.value.trim();
+            if (!text) return;
+            messageInput.value = '';
+            await sendNewMessage({ text: text, type: 'text' });
+        });
+
+        // Запись голоса
+        voiceBtn.addEventListener('click', () => {
+            if (isRecording) stopRecordingAndSend();
+            else startRecording();
+        });
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                let options = {};
+                if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options = { mimeType: 'audio/webm;codecs=opus' };
+                else if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
+
+                mediaRecorder = new MediaRecorder(stream, options);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+                mediaRecorder.start(100);
+                isRecording = true;
+
+                voiceRecordingBar.classList.remove('hidden');
+                voiceBtn.classList.add('bg-red-600', 'text-white', 'animate-pulse');
+                voiceBtn.classList.remove('bg-zinc-900');
+
+                recordingSeconds = 0;
+                recordingTimer.textContent = "0:00";
+                recordingInterval = setInterval(() => {
+                    recordingSeconds++;
+                    const mins = Math.floor(recordingSeconds / 60);
+                    const secs = recordingSeconds % 60;
+                    recordingTimer.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                }, 1000);
+            } catch (err) {
+                showToast("Нет доступа к микрофону");
+            }
+        }
+
+        function stopRecordingAndSend() {
+            if (!mediaRecorder) return;
+            mediaRecorder.onstop = async () => {
+                const mime = mediaRecorder.mimeType || 'audio/webm';
+                const audioBlob = new Blob(audioChunks, { type: mime });
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = async () => {
+                    await sendNewMessage({ audioData: reader.result, type: 'voice' });
+                };
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                resetVoiceUI();
+            };
+            mediaRecorder.stop();
+        }
+
+        cancelVoiceBtn.addEventListener('click', () => {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.onstop = () => {
+                    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                    resetVoiceUI();
+                };
+                mediaRecorder.stop();
+            }
+        });
+
+        function resetVoiceUI() {
+            isRecording = false;
+            clearInterval(recordingInterval);
+            voiceRecordingBar.classList.add('hidden');
+            voiceBtn.classList.remove('bg-red-600', 'text-white', 'animate-pulse');
+            voiceBtn.classList.add('bg-zinc-900');
+        }
+
+        function openUserProfileModal(user) {
+            document.getElementById('profile-modal-avatar').src = user.photoURL || 'https://placehold.co/100x100/18181b/ef4444?text=User';
+            document.getElementById('profile-modal-name').textContent = user.displayName || 'Пользователь';
+            
+            const statusEl = document.getElementById('profile-modal-status');
+            const isOnline = user.isOnline && (Date.now() - (user.lastSeen || 0) < 30000);
+
+            if (isOnline) {
+                statusEl.className = 'text-xs text-emerald-400 font-medium';
+                statusEl.textContent = 'в сети';
+            } else {
+                statusEl.className = 'text-xs text-zinc-500';
+                statusEl.textContent = 'не в сети';
+            }
+
+            userProfileModal.classList.remove('hidden');
+        }
+
+        document.getElementById('close-profile-modal-btn').addEventListener('click', () => userProfileModal.classList.add('hidden'));
+        imageViewModal.addEventListener('click', () => imageViewModal.classList.add('hidden'));
+        document.getElementById('close-image-modal-btn').addEventListener('click', () => imageViewModal.classList.add('hidden'));
+
+        logoutBtn.addEventListener('click', async () => {
+            await updateOnlineStatus(false);
+            location.reload();
+        });
+
+        function escapeHTML(str) {
+            return (str || '').replace(/[&<>"']/g, function(m) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+            });
+        }
+    </script>
+</body>
+</html>
