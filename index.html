@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Чат</title>
-    <!-- Tailwind CSS -->
+    <title>Приватный чат</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .red-glow-border { box-shadow: 0 0 20px rgba(220, 38, 38, 0.2); }
@@ -15,34 +13,45 @@
 </head>
 <body class="bg-black text-white h-dvh flex items-center justify-center overflow-hidden font-sans">
 
-    <!-- 1. ЭКРАН ВХОДА (Пароль) -->
-    <div id="login-screen" class="w-full h-full flex flex-col justify-center items-center p-4">
+    <!-- 1. ЭКРАН АВТОРИЗАЦИИ И СОЗДАНИЯ -->
+    <div id="auth-screen" class="w-full h-full flex flex-col justify-center items-center p-4">
         <div class="w-full max-w-md bg-zinc-950 p-8 rounded-3xl red-glow-border text-center flex flex-col items-center">
             
             <div class="w-16 h-16 rounded-full bg-red-950/60 border border-red-600/50 flex items-center justify-center mb-6 shadow-lg">
                 <i class="fa-solid fa-lock text-red-500 text-2xl"></i>
             </div>
             
-            <h1 class="text-2xl font-bold tracking-tight text-white mb-6">Вход</h1>
+            <h1 id="auth-title" class="text-2xl font-bold tracking-tight text-white mb-6">Вход в чат</h1>
             
-            <form id="password-form" class="w-full flex flex-col gap-4">
+            <form id="auth-form" class="w-full flex flex-col gap-4">
+                <input type="text" id="nickname-input" placeholder="Ваш никнейм" required maxlength="20"
+                    class="w-full bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-500 text-sm rounded-2xl py-3 px-4 focus:outline-none focus:border-red-600 transition-all">
+                
                 <div class="relative w-full">
-                    <input type="password" id="password-input" placeholder="Пароль" required autocomplete="current-password"
+                    <input type="password" id="pass1-input" placeholder="Пароль комнаты" required
+                        class="w-full bg-zinc-900 border border-zinc-800 text-center text-xl tracking-[0.3em] font-mono text-white placeholder-zinc-600 rounded-2xl py-3 px-4 focus:outline-none focus:border-red-600 red-glow-input transition-all">
+                </div>
+
+                <div id="create-extra-fields" class="hidden flex flex-col gap-4">
+                    <input type="password" id="pass2-input" placeholder="Повторите пароль"
                         class="w-full bg-zinc-900 border border-zinc-800 text-center text-xl tracking-[0.3em] font-mono text-white placeholder-zinc-600 rounded-2xl py-3 px-4 focus:outline-none focus:border-red-600 red-glow-input transition-all">
                 </div>
                 
-                <button type="submit" 
-                    class="w-full bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-semibold py-3 rounded-2xl transition-all shadow-lg shadow-red-950 flex items-center justify-center gap-2 cursor-pointer">
-                    <span>Войти</span>
+                <button type="submit" id="submit-btn"
+                    class="w-full bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-semibold py-3 rounded-2xl transition-all shadow-lg shadow-red-950 flex items-center justify-center gap-2 cursor-pointer mt-2">
+                    <span id="btn-text">Войти</span>
                     <i class="fa-solid fa-arrow-right text-xs"></i>
                 </button>
             </form>
 
-            <div id="login-error" class="hidden mt-4 p-3 bg-red-950/80 border border-red-800 text-red-300 text-xs rounded-xl w-full">
-                Неверный пароль!
+            <!-- Кнопка переключения режима внизу -->
+            <div class="mt-6 pt-4 border-t border-zinc-900 w-full">
+                <button type="button" id="toggle-mode-btn" onclick="toggleAuthMode()" class="text-sm text-zinc-400 hover:text-red-400 transition-colors cursor-pointer font-medium">
+                    Создать новый чат (до 20 человек)
+                </button>
             </div>
-            <div id="full-error" class="hidden mt-4 p-3 bg-amber-950/80 border border-amber-800 text-amber-300 text-xs rounded-xl w-full">
-                Превышен лимит пользователей (максимум 5).
+
+            <div id="auth-error" class="hidden mt-4 p-3 bg-red-950/80 border border-red-800 text-red-300 text-xs rounded-xl w-full">
             </div>
         </div>
     </div>
@@ -51,25 +60,41 @@
     <div id="chat-screen" class="hidden w-full h-full flex flex-col bg-black max-w-4xl border-x border-zinc-900 shadow-2xl overflow-hidden relative">
         
         <!-- Верхняя шапка чата -->
-        <div class="h-16 border-b border-zinc-900 px-4 md:px-6 flex items-center justify-between bg-zinc-950/90 backdrop-blur z-10">
-            <div class="flex items-center gap-3">
-                <h2 class="font-bold text-lg text-white">Чат</h2>
+        <div class="h-16 border-b border-zinc-900 px-3 md:px-6 flex items-center justify-between bg-zinc-950/90 backdrop-blur z-10">
+            <div class="flex items-center gap-2 md:gap-3">
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-bold text-base text-white">Чат</h2>
+                        <!-- Кнопка поделиться ссылкой -->
+                        <button onclick="copyRoomLink()" title="Поделиться ссылкой на чат" class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-red-400 px-2 py-1 rounded-lg text-xs flex items-center gap-1.5 transition-colors cursor-pointer">
+                            <i class="fa-solid fa-share-nodes text-red-500"></i>
+                            <span class="hidden sm:inline">Ссылка</span>
+                        </button>
+                    </div>
+                    <!-- Красный таймер обратного отсчета 6 часов -->
+                    <div class="flex items-center gap-1.5 text-[11px] font-mono text-red-500 font-semibold mt-0.5" title="Время до полного удаления всех сообщений">
+                        <i class="fa-regular fa-clock text-[10px] animate-pulse"></i>
+                        <span id="wipe-timer">06:00:00</span>
+                    </div>
+                </div>
+
+                <!-- Счетчик участников -->
                 <span id="online-badge" class="text-[11px] bg-emerald-950 border border-emerald-800 text-emerald-400 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 font-medium">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span id="online-count">1</span>
+                    <span id="online-count">1</span>/20
                 </span>
             </div>
             
             <div class="flex items-center gap-2">
-                <!-- Кнопка «Профиль / Меню» -->
+                <!-- Мой Профиль -->
                 <button id="open-profile-btn" type="button" title="Мой Профиль" 
                     class="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white text-xs px-3 py-2 rounded-full transition-all cursor-pointer">
                     <img id="header-avatar-preview" src="https://placehold.co/100x100/18181b/ef4444?text=Я" class="w-6 h-6 rounded-full object-cover">
-                    <span id="header-name-display" class="max-w-[100px] truncate font-medium">Профиль</span>
-                    <i class="fa-solid fa-gear text-zinc-400 text-xs ml-1"></i>
+                    <span id="header-name-display" class="max-w-[80px] sm:max-w-[110px] truncate font-medium">Профиль</span>
+                    <i class="fa-solid fa-gear text-zinc-400 text-xs"></i>
                 </button>
                 
-                <!-- Кнопка Выхода -->
+                <!-- Выход -->
                 <button id="logout-btn" type="button" title="Выйти" class="w-9 h-9 bg-zinc-900 hover:bg-red-950/60 hover:text-red-400 border border-zinc-800 text-zinc-400 rounded-full flex items-center justify-center transition-all cursor-pointer">
                     <i class="fa-solid fa-right-from-bracket text-xs"></i>
                 </button>
@@ -78,7 +103,6 @@
 
         <!-- Область Сообщений -->
         <div id="messages-container" class="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col gap-4 bg-zinc-950">
-            <!-- Сообщения генерируются скриптом -->
         </div>
 
         <!-- Индикатор Записи Голоса -->
@@ -93,25 +117,21 @@
         <!-- Нижняя панель ввода -->
         <div class="p-3 md:p-4 bg-zinc-950 border-t border-zinc-900 z-10">
             <form id="message-form" class="flex items-center gap-2">
-                <!-- Кнопка «Фотография» -->
                 <label title="Отправить фото" class="w-11 h-11 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-full flex items-center justify-center transition-all cursor-pointer flex-shrink-0">
                     <i class="fa-solid fa-image text-base text-red-500"></i>
                     <input type="file" id="chat-photo-input" accept="image/*" class="hidden">
                 </label>
 
-                <!-- Поле ввода текста -->
                 <div class="flex-1 relative">
                     <input type="text" id="message-input" autocomplete="off" placeholder="Напишите сообщение..." 
                         class="w-full bg-zinc-900 border border-zinc-800 text-white placeholder-zinc-500 text-sm py-3 pl-4 pr-4 rounded-full focus:outline-none focus:border-red-600 red-glow-input transition-all">
                 </div>
 
-                <!-- Кнопка «Голосовое сообщение» -->
                 <button type="button" id="voice-btn" title="Голосовое сообщение"
                     class="w-11 h-11 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 rounded-full flex items-center justify-center transition-all flex-shrink-0 cursor-pointer">
                     <i class="fa-solid fa-microphone text-base"></i>
                 </button>
 
-                <!-- Кнопка «Отправить» -->
                 <button type="submit" id="send-btn" title="Отправить"
                     class="w-11 h-11 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center transition-all shadow-lg shadow-red-950/50 flex-shrink-0 cursor-pointer">
                     <i class="fa-solid fa-paper-plane text-sm"></i>
@@ -140,7 +160,7 @@
 
             <div class="mb-6">
                 <label class="text-xs text-zinc-400 mb-2 block">Никнейм:</label>
-                <input type="text" id="profile-name-input" placeholder="Введите имя..." value="Пользователь"
+                <input type="text" id="profile-name-input" placeholder="Введите имя..." value="Пользователь" maxlength="20"
                        class="w-full bg-zinc-900 border border-zinc-800 text-sm text-white px-4 py-2.5 rounded-xl focus:outline-none focus:border-red-600 transition-all font-medium">
             </div>
 
@@ -175,16 +195,14 @@
         <span id="toast-text"></span>
     </div>
 
-    <!-- Firebase SDK & Скрипт логики -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, addDoc, deleteDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const SECRET_PASSWORD = "846881";
-        const appId = 'secret-chat-v3';
-        
-        // Ваш Firebase конфигурационный блок
+        const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+        const MAX_ROOM_USERS = 20;
+
         const firebaseConfig = {
             apiKey: "AIzaSyA5WJE3afisQ-Ue6w8EwLq1Bnz-Gjq5ICI",
             authDomain: "chat-14abe.firebaseapp.com",
@@ -210,13 +228,16 @@
         let currentUser = null;
         let myProfile = { displayName: 'Участник', photoURL: '' };
         let onlineUsersMap = {};
+        let currentRoomId = null;
+        let roomResetAt = null;
+        let timerInterval = null;
+        let heartbeatInterval = null;
 
-        // Генерация постоянного ID устройства
         function getDeviceId() {
-            let deviceId = localStorage.getItem('chat_device_identity_id');
+            let deviceId = localStorage.getItem('chat_device_id_v20');
             if (!deviceId) {
                 deviceId = 'dev_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
-                localStorage.setItem('chat_device_identity_id', deviceId);
+                localStorage.setItem('chat_device_id_v20', deviceId);
             }
             return deviceId;
         }
@@ -229,17 +250,43 @@
             setTimeout(() => toast.classList.add('hidden'), 3000);
         }
 
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let recordingInterval = null;
-        let recordingSeconds = 0;
-        let isRecording = false;
+        async function sha256(message) {
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
 
-        const loginScreen = document.getElementById('login-screen');
+        let isLoginMode = true;
+        window.toggleAuthMode = function() {
+            isLoginMode = !isLoginMode;
+            const authTitle = document.getElementById('auth-title');
+            const btnText = document.getElementById('btn-text');
+            const extraFields = document.getElementById('create-extra-fields');
+            const toggleBtn = document.getElementById('toggle-mode-btn');
+            const authError = document.getElementById('auth-error');
+
+            authError.classList.add('hidden');
+            if (isLoginMode) {
+                authTitle.textContent = "Вход в чат";
+                btnText.textContent = "Войти";
+                extraFields.classList.add('hidden');
+                toggleBtn.textContent = "Создать новый чат (до 20 человек)";
+            } else {
+                authTitle.textContent = "Создать свой чат";
+                btnText.textContent = "Создать";
+                extraFields.classList.remove('hidden');
+                toggleBtn.textContent = "Уже есть пароль? Войти в чат";
+            }
+        };
+
+        const authScreen = document.getElementById('auth-screen');
         const chatScreen = document.getElementById('chat-screen');
-        const passwordForm = document.getElementById('password-form');
-        const passwordInput = document.getElementById('password-input');
-        const loginError = document.getElementById('login-error');
+        const authForm = document.getElementById('auth-form');
+        const nicknameInput = document.getElementById('nickname-input');
+        const pass1Input = document.getElementById('pass1-input');
+        const pass2Input = document.getElementById('pass2-input');
+        const authError = document.getElementById('auth-error');
 
         const openProfileBtn = document.getElementById('open-profile-btn');
         const myProfileModal = document.getElementById('my-profile-modal');
@@ -255,6 +302,7 @@
         const messagesContainer = document.getElementById('messages-container');
         const messageForm = document.getElementById('message-form');
         const messageInput = document.getElementById('message-input');
+        const wipeTimerEl = document.getElementById('wipe-timer');
 
         const voiceBtn = document.getElementById('voice-btn');
         const voiceRecordingBar = document.getElementById('voice-recording-bar');
@@ -267,42 +315,22 @@
         const modalFullImage = document.getElementById('modal-full-image');
         const userProfileModal = document.getElementById('user-profile-modal');
 
-        // Вход по паролю
-        passwordForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (passwordInput.value.trim() === SECRET_PASSWORD) {
-                loginError.classList.add('hidden');
-                await signInAnonymously(auth);
-            } else {
-                loginError.classList.remove('hidden');
-            }
-        });
+        // Загрузка сохраненного профиля при открытии страницы
+        let savedProfiles = {};
+        try { savedProfiles = JSON.parse(localStorage.getItem('chat_profiles_v20') || '{}'); } catch(e){}
+        if (savedProfiles[currentDeviceId]) {
+            myProfile = savedProfiles[currentDeviceId];
+            nicknameInput.value = myProfile.displayName;
+        } else {
+            myProfile.displayName = `Участник #${currentDeviceId.substring(4, 8)}`;
+        }
+        updateUIProfileData();
 
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                currentUser = user;
-                loginScreen.classList.add('hidden');
-                chatScreen.classList.remove('hidden');
-
-                // Загружаем сохраненный профиль устройства, если есть
-                let savedProfiles = {};
-                try { savedProfiles = JSON.parse(localStorage.getItem('chat_profiles') || '{}'); } catch(e){}
-                
-                if (savedProfiles[currentDeviceId]) {
-                    myProfile = savedProfiles[currentDeviceId];
-                } else {
-                    myProfile.displayName = `Участник #${currentDeviceId.substring(4, 8)}`;
-                }
-
-                updateUIProfileData();
-                await updateOnlineStatus(true);
-
-                listenToOnlineUsers();
-                listenToMessages();
-
-                window.addEventListener('beforeunload', () => updateOnlineStatus(false));
-            }
-        });
+        // Проверка, перешел ли человек по пригласительной ссылке (?room=...)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('room')) {
+            showToast("Введите пароль комнаты, чтобы войти в чат");
+        }
 
         function updateUIProfileData() {
             headerNameDisplay.textContent = myProfile.displayName;
@@ -313,20 +341,16 @@
             }
         }
 
-        // Сохранение профиля
         saveProfileBtn.addEventListener('click', async () => {
             const name = profileNameInput.value.trim();
-            if (name) {
-                myProfile.displayName = name;
-            }
+            if (name) myProfile.displayName = name;
             updateUIProfileData();
 
-            let savedProfiles = {};
-            try { savedProfiles = JSON.parse(localStorage.getItem('chat_profiles') || '{}'); } catch(e){}
+            try { savedProfiles = JSON.parse(localStorage.getItem('chat_profiles_v20') || '{}'); } catch(e){}
             savedProfiles[currentDeviceId] = myProfile;
-            localStorage.setItem('chat_profiles', JSON.stringify(savedProfiles));
+            localStorage.setItem('chat_profiles_v20', JSON.stringify(savedProfiles));
 
-            await updateOnlineStatus(true);
+            if (currentUser && currentRoomId) await updateOnlineStatus(true);
             myProfileModal.classList.add('hidden');
             showToast('Профиль сохранен!');
         });
@@ -349,9 +373,167 @@
         openProfileBtn.addEventListener('click', () => myProfileModal.classList.remove('hidden'));
         closeMyProfileModalBtn.addEventListener('click', () => myProfileModal.classList.add('hidden'));
 
+        // Обработка входа или создания комнаты
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nickname = nicknameInput.value.trim();
+            const pass1 = pass1Input.value.trim();
+            const pass2 = pass2Input.value.trim();
+
+            if (!nickname || !pass1) return showToast("Заполните никнейм и пароль");
+
+            authError.classList.add('hidden');
+            const roomId = await sha256(pass1);
+            const roomRef = doc(db, 'rooms', roomId);
+
+            try {
+                if (!isLoginMode) {
+                    // Режим СОЗДАНИЯ
+                    if (pass1 !== pass2) {
+                        authError.textContent = "Пароли не совпадают! Проверьте ввод.";
+                        authError.classList.remove('hidden');
+                        return;
+                    }
+                    const snap = await getDoc(roomRef);
+                    if (snap.exists()) {
+                        authError.textContent = "Такой пароль уже занят. Придумайте другой или нажмите «Войти».";
+                        authError.classList.remove('hidden');
+                        return;
+                    }
+                    const now = Date.now();
+                    await setDoc(roomRef, {
+                        createdAt: now,
+                        resetAt: now + SIX_HOURS_MS,
+                        creatorId: currentDeviceId,
+                        maxUsers: MAX_ROOM_USERS
+                    });
+                } else {
+                    // Режим ВХОДА
+                    const snap = await getDoc(roomRef);
+                    if (!snap.exists()) {
+                        authError.textContent = "Чат с таким паролем не найден! Проверьте пароль или создайте новый.";
+                        authError.classList.remove('hidden');
+                        return;
+                    }
+
+                    // Проверка лимита 20 человек перед входом
+                    const usersSnap = await getDocs(collection(db, 'rooms', roomId, 'users'));
+                    const now = Date.now();
+                    let activeCount = 0;
+                    let alreadyInRoom = false;
+
+                    usersSnap.forEach(u => {
+                        const d = u.data();
+                        if (d.deviceId === currentDeviceId) alreadyInRoom = true;
+                        else if (d.isOnline && (now - (d.lastSeen || 0) < 35000)) activeCount++;
+                    });
+
+                    if (activeCount >= MAX_ROOM_USERS && !alreadyInRoom) {
+                        authError.textContent = "В этом чате уже максимум участников (20 из 20).";
+                        authError.classList.remove('hidden');
+                        return;
+                    }
+                }
+
+                currentRoomId = roomId;
+                myProfile.displayName = nickname;
+                updateUIProfileData();
+
+                // Сохраняем никнейм в память устройства
+                savedProfiles[currentDeviceId] = myProfile;
+                localStorage.setItem('chat_profiles_v20', JSON.stringify(savedProfiles));
+
+                if (!auth.currentUser) {
+                    await signInAnonymously(auth);
+                } else {
+                    enterChatRoom(auth.currentUser);
+                }
+            } catch (err) {
+                console.error(err);
+                authError.textContent = "Ошибка подключения к базе данных.";
+                authError.classList.remove('hidden');
+            }
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user && currentRoomId && !currentUser) {
+                enterChatRoom(user);
+            }
+        });
+
+        async function enterChatRoom(user) {
+            currentUser = user;
+            authScreen.classList.add('hidden');
+            chatScreen.classList.remove('hidden');
+
+            await updateOnlineStatus(true);
+            heartbeatInterval = setInterval(() => updateOnlineStatus(true), 15000);
+
+            listenToRoomCycle();
+            listenToOnlineUsers();
+            listenToMessages();
+
+            window.addEventListener('beforeunload', () => updateOnlineStatus(false));
+        }
+
+        // Следим за 6-часовым циклом комнаты и очищаем всё по таймеру
+        function listenToRoomCycle() {
+            const roomRef = doc(db, 'rooms', currentRoomId);
+            onSnapshot(roomRef, async (snap) => {
+                if (!snap.exists()) return;
+                const data = snap.data();
+                roomResetAt = data.resetAt || (Date.now() + SIX_HOURS_MS);
+
+                if (!timerInterval) {
+                    startCountdownTimer();
+                }
+            });
+        }
+
+        function startCountdownTimer() {
+            timerInterval = setInterval(async () => {
+                if (!roomResetAt) return;
+                const remaining = roomResetAt - Date.now();
+
+                if (remaining <= 0) {
+                    wipeTimerEl.textContent = "00:00:00";
+                    await wipeAllMessagesAndResetTimer();
+                } else {
+                    const hrs = Math.floor(remaining / (1000 * 60 * 60));
+                    const mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+                    const secs = Math.floor((remaining % (1000 * 60)) / 1000);
+                    wipeTimerEl.textContent = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                }
+            }, 1000);
+        }
+
+        let isWiping = false;
+        async function wipeAllMessagesAndResetTimer() {
+            if (isWiping || !currentRoomId) return;
+            isWiping = true;
+            try {
+                // Удаляем все сообщения из базы
+                const messagesCol = collection(db, 'rooms', currentRoomId, 'messages');
+                const snap = await getDocs(messagesCol);
+                const deletePromises = [];
+                snap.forEach(d => deletePromises.push(deleteDoc(doc(db, 'rooms', currentRoomId, 'messages', d.id))));
+                await Promise.all(deletePromises);
+
+                // Запускаем новый 6-часовой цикл
+                const newResetAt = Date.now() + SIX_HOURS_MS;
+                roomResetAt = newResetAt;
+                await setDoc(doc(db, 'rooms', currentRoomId), { resetAt: newResetAt }, { merge: true });
+                showToast("Время вышло! История чата полностью очищена.");
+            } catch (e) {
+                console.error(e);
+            } finally {
+                isWiping = false;
+            }
+        }
+
         async function updateOnlineStatus(isOnline) {
-            if (!currentUser) return;
-            const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', currentDeviceId);
+            if (!currentUser || !currentRoomId) return;
+            const userRef = doc(db, 'rooms', currentRoomId, 'users', currentDeviceId);
             try {
                 await setDoc(userRef, {
                     uid: currentUser.uid,
@@ -367,7 +549,7 @@
         }
 
         function listenToOnlineUsers() {
-            const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+            const usersCol = collection(db, 'rooms', currentRoomId, 'users');
             onSnapshot(usersCol, (snapshot) => {
                 const now = Date.now();
                 let activeCount = 0;
@@ -376,8 +558,7 @@
                 snapshot.forEach(docSnap => {
                     const data = docSnap.data();
                     onlineUsersMap[data.deviceId || data.uid] = data;
-                    // Считаем онлайн, если была активность за последние 30 секунд
-                    if (data.isOnline && (now - (data.lastSeen || 0) < 30000)) {
+                    if (data.isOnline && (now - (data.lastSeen || 0) < 35000)) {
                         activeCount++;
                     }
                 });
@@ -392,21 +573,19 @@
             return USER_THEMES[(Math.abs(hash) % 4) + 1];
         }
 
-        // Сообщения с автоудалением через 24 часа
         function listenToMessages() {
-            const messagesCol = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+            const messagesCol = collection(db, 'rooms', currentRoomId, 'messages');
 
             onSnapshot(messagesCol, (snapshot) => {
                 const now = Date.now();
-                const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
                 const docs = [];
 
                 snapshot.forEach(docSnap => {
                     const data = docSnap.data();
                     const createdAt = data.createdAt || 0;
 
-                    if (now - createdAt > TWENTY_FOUR_HOURS) {
-                        deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'messages', docSnap.id)).catch(() => {});
+                    if (now - createdAt > SIX_HOURS_MS) {
+                        deleteDoc(doc(db, 'rooms', currentRoomId, 'messages', docSnap.id)).catch(() => {});
                     } else {
                         docs.push({ id: docSnap.id, ...data });
                     }
@@ -458,7 +637,7 @@
                      class="w-8 h-8 rounded-full object-cover border border-zinc-800 flex-shrink-0 mt-1 cursor-pointer hover:scale-105 transition-transform"
                      onerror="this.src='https://placehold.co/100x100/18181b/ef4444?text=User'">
                 <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
-                    <span class="text-[11px] font-semibold text-zinc-400 mb-1 px-1">${escapeHTML(msg.displayName || 'Пользователь')}</span>
+                    <span class="text-[11px] font-semibold text-zinc-400 mb-1 px-1 cursor-pointer hover:text-white">${escapeHTML(msg.displayName || 'Пользователь')}</span>
                     <div class="${theme.bg} border ${theme.border} p-3 rounded-2xl ${isMe ? 'rounded-tr-none' : 'rounded-tl-none'} shadow-md w-full">
                         ${contentHTML}
                         <div class="text-[9px] text-zinc-400 text-right mt-1">${formattedTime}</div>
@@ -503,7 +682,8 @@
         }
 
         async function sendNewMessage(payload) {
-            const messagesCol = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+            if (!currentRoomId) return;
+            const messagesCol = collection(db, 'rooms', currentRoomId, 'messages');
             await addDoc(messagesCol, {
                 uid: currentUser.uid,
                 deviceId: currentDeviceId,
@@ -514,7 +694,6 @@
             });
         }
 
-        // Отправка фото
         chatPhotoInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -530,7 +709,6 @@
             chatPhotoInput.value = '';
         });
 
-        // Отправка текста
         messageForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const text = messageInput.value.trim();
@@ -539,11 +717,16 @@
             await sendNewMessage({ text: text, type: 'text' });
         });
 
-        // Запись голоса
         voiceBtn.addEventListener('click', () => {
             if (isRecording) stopRecordingAndSend();
             else startRecording();
         });
+
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordingInterval = null;
+        let recordingSeconds = 0;
+        let isRecording = false;
 
         async function startRecording() {
             try {
@@ -615,7 +798,7 @@
             document.getElementById('profile-modal-name').textContent = user.displayName || 'Пользователь';
             
             const statusEl = document.getElementById('profile-modal-status');
-            const isOnline = user.isOnline && (Date.now() - (user.lastSeen || 0) < 30000);
+            const isOnline = user.isOnline && (Date.now() - (user.lastSeen || 0) < 35000);
 
             if (isOnline) {
                 statusEl.className = 'text-xs text-emerald-400 font-medium';
@@ -628,13 +811,33 @@
             userProfileModal.classList.remove('hidden');
         }
 
+        // Копирование ссылки на сайт (без раскрытия пароля в самой ссылке)
+        window.copyRoomLink = function() {
+            const shareUrl = window.location.origin + window.location.pathname + '?room=invite';
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Приватный чат',
+                    text: 'Заходи в мой закрытый чат! Пароль скажу лично.',
+                    url: shareUrl
+                }).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    showToast('Ссылка скопирована! Отправьте её другу и назовите пароль.');
+                }).catch(() => {
+                    showToast('Не удалось скопировать ссылку');
+                });
+            }
+        };
+
         document.getElementById('close-profile-modal-btn').addEventListener('click', () => userProfileModal.classList.add('hidden'));
         imageViewModal.addEventListener('click', () => imageViewModal.classList.add('hidden'));
         document.getElementById('close-image-modal-btn').addEventListener('click', () => imageViewModal.classList.add('hidden'));
 
         logoutBtn.addEventListener('click', async () => {
+            clearInterval(heartbeatInterval);
+            clearInterval(timerInterval);
             await updateOnlineStatus(false);
-            location.reload();
+            window.location.href = window.location.origin + window.location.pathname;
         });
 
         function escapeHTML(str) {
@@ -645,3 +848,4 @@
     </script>
 </body>
 </html>
+
