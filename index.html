@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -730,6 +731,11 @@
 
         async function startRecording() {
             try {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    showToast("Запись аудио не поддерживается вашим браузером");
+                    return;
+                }
+
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 let options = {};
                 if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options = { mimeType: 'audio/webm;codecs=opus' };
@@ -755,7 +761,15 @@
                     recordingTimer.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
                 }, 1000);
             } catch (err) {
-                showToast("Нет доступа к микрофону");
+                console.error("Mic error:", err);
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    showToast("Доступ к микрофону заблокирован");
+                } else if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                    showToast("Требуется защищенный HTTPS протокол");
+                } else {
+                    showToast("Не удалось запустить микрофон");
+                }
+                resetVoiceUI();
             }
         }
 
@@ -848,4 +862,3 @@
     </script>
 </body>
 </html>
-
