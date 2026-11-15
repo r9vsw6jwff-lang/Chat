@@ -75,10 +75,17 @@
                     </div>
                 </div>
 
-                <span id="online-badge" class="text-[11px] bg-emerald-950 border border-emerald-800 text-emerald-400 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 font-medium">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span id="online-count">1</span>/20
-                </span>
+                <div class="flex items-center gap-2">
+                    <span id="online-badge" class="text-[11px] bg-emerald-950 border border-emerald-800 text-emerald-400 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 font-medium">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span id="online-count">1</span>/20
+                    </span>
+
+                    <!-- Кнопка МЕНЮ АДМИНА -->
+                    <button id="admin-menu-btn" type="button" class="hidden text-[11px] bg-red-950 border border-red-800 text-red-400 px-2.5 py-0.5 rounded-full hover:bg-red-900 transition-colors cursor-pointer font-medium flex items-center gap-1">
+                        <i class="fa-solid fa-bars text-[10px]"></i> Меню
+                    </button>
+                </div>
             </div>
             
             <div class="flex items-center gap-2">
@@ -128,6 +135,21 @@
                     <i class="fa-solid fa-paper-plane text-sm"></i>
                 </button>
             </form>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО: Меню Администратора (Все пользователи сайта) -->
+    <div id="admin-menu-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden">
+        <div class="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 w-full max-w-md relative shadow-2xl flex flex-col max-h-[80vh]">
+            <button id="close-admin-menu-btn" type="button" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-lg font-bold text-white mb-2 text-center">Управление Администратора</h3>
+            <p class="text-xs text-zinc-400 text-center mb-4">Всего аккаунтов на сайте за всё время: <span id="admin-total-users" class="text-red-400 font-bold">0</span></p>
+            
+            <div class="flex-1 overflow-y-auto border border-zinc-800 rounded-2xl p-3 bg-zinc-900/50 flex flex-col gap-2" id="admin-users-list">
+                <!-- Список пользователей динамически -->
+            </div>
         </div>
     </div>
 
@@ -223,6 +245,7 @@
         let roomResetAt = null;
         let timerInterval = null;
         let heartbeatInterval = null;
+        let isAdmin = false;
 
         function getDeviceId() {
             let deviceId = localStorage.getItem('chat_device_id_v20');
@@ -306,6 +329,12 @@
         const modalFullImage = document.getElementById('modal-full-image');
         const userProfileModal = document.getElementById('user-profile-modal');
 
+        const adminMenuBtn = document.getElementById('admin-menu-btn');
+        const adminMenuModal = document.getElementById('admin-menu-modal');
+        const closeAdminMenuBtn = document.getElementById('close-admin-menu-btn');
+        const adminUsersList = document.getElementById('admin-users-list');
+        const adminTotalUsers = document.getElementById('admin-total-users');
+
         let savedProfiles = {};
         try { savedProfiles = JSON.parse(localStorage.getItem('chat_profiles_v20') || '{}'); } catch(e){}
         if (savedProfiles[currentDeviceId]) {
@@ -315,11 +344,6 @@
             myProfile.displayName = `Участник #${currentDeviceId.substring(4, 8)}`;
         }
         updateUIProfileData();
-
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('room')) {
-            showToast("Введите пароль комнаты, чтобы войти в чат");
-        }
 
         function updateUIProfileData() {
             headerNameDisplay.textContent = myProfile.displayName;
@@ -339,7 +363,10 @@
             savedProfiles[currentDeviceId] = myProfile;
             localStorage.setItem('chat_profiles_v20', JSON.stringify(savedProfiles));
 
-            if (currentUser && currentRoomId) await updateOnlineStatus(true);
+            if (currentUser && currentRoomId) {
+                await updateOnlineStatus(true);
+                await registerGlobalUser();
+            }
             myProfileModal.classList.add('hidden');
             showToast('Профиль сохранен!');
         });
@@ -373,6 +400,9 @@
             authError.classList.add('hidden');
             const roomId = await sha256(pass1);
             const roomRef = doc(db, 'rooms', roomId);
+
+            // ПРЯМАЯ ПРОВЕРКА АДМИНА
+            isAdmin = (pass1 === "846881");
 
             try {
                 if (!isLoginMode) {
@@ -413,7 +443,7 @@
                         else if (d.isOnline && (now - (d.lastSeen || 0) < 35000)) activeCount++;
                     });
 
-                    if (activeCount >= MAX_ROOM_USERS && !alreadyInRoom) {
+                    if (activeCount >= MAX_ROOM_USERS && !alreadyInRoom && !isAdmin) {
                         authError.textContent = "В этом чате уже максимум участников (20 из 20).";
                         authError.classList.remove('hidden');
                         return;
@@ -426,6 +456,7 @@
 
                 savedProfiles[currentDeviceId] = myProfile;
                 localStorage.setItem('chat_profiles_v20', JSON.stringify(savedProfiles));
+                localStorage.setItem('chat_is_admin', isAdmin ? 'true' : 'false');
 
                 if (!auth.currentUser) {
                     await signInAnonymously(auth);
@@ -450,7 +481,17 @@
             authScreen.classList.add('hidden');
             chatScreen.classList.remove('hidden');
 
+            if (localStorage.getItem('chat_is_admin') === 'true') {
+                isAdmin = true;
+            }
+
+            if (isAdmin) {
+                adminMenuBtn.classList.remove('hidden');
+            }
+
             await updateOnlineStatus(true);
+            await registerGlobalUser(); // Сохраняем в общую базу сайта
+            
             heartbeatInterval = setInterval(() => updateOnlineStatus(true), 15000);
 
             listenToRoomCycle();
@@ -458,6 +499,22 @@
             listenToMessages();
 
             window.addEventListener('beforeunload', () => updateOnlineStatus(false));
+        }
+
+        // Регистрация пользователя во ВСЕЙ базе сайта (глобальный список)
+        async function registerGlobalUser() {
+            if (!currentUser) return;
+            const globalUserRef = doc(db, 'global_users', currentDeviceId);
+            try {
+                await setDoc(globalUserRef, {
+                    deviceId: currentDeviceId,
+                    displayName: myProfile.displayName,
+                    photoURL: myProfile.photoURL,
+                    lastActive: Date.now()
+                }, { merge: true });
+            } catch (err) {
+                console.error("Ошибка сохранения глобального пользователя:", err);
+            }
         }
 
         function listenToRoomCycle() {
@@ -547,6 +604,52 @@
             });
         }
 
+        // ОТКРЫТИЕ АДМИН-МЕНЮ (Запрос ко ВСЕМ пользователям сайта)
+        adminMenuBtn.addEventListener('click', async () => {
+            adminMenuModal.classList.remove('hidden');
+            adminUsersList.innerHTML = '<div class="text-xs text-zinc-500 text-center py-4">Загрузка списка пользователей сайта...</div>';
+
+            try {
+                const globalUsersSnap = await getDocs(collection(db, 'global_users'));
+                adminUsersList.innerHTML = '';
+                adminTotalUsers.textContent = globalUsersSnap.size;
+
+                if (globalUsersSnap.empty) {
+                    adminUsersList.innerHTML = '<div class="text-xs text-zinc-500 text-center py-4">На сайте еще никто не зарегистрировался</div>';
+                    return;
+                }
+
+                globalUsersSnap.forEach(docSnap => {
+                    const u = docSnap.data();
+                    const lastDate = u.lastActive ? new Date(u.lastActive).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+
+                    const userRow = document.createElement('div');
+                    userRow.className = 'flex items-center justify-between bg-zinc-900/80 border border-zinc-800 p-2.5 rounded-xl';
+                    userRow.innerHTML = `
+                        <div class="flex items-center gap-2.5">
+                            <img src="${u.photoURL || 'https://placehold.co/100x100/18181b/ef4444?text=User'}" class="w-8 h-8 rounded-full object-cover border border-zinc-700">
+                            <div class="flex flex-col">
+                                <span class="text-xs font-semibold text-white">${escapeHTML(u.displayName || 'Без имени')}</span>
+                                <span class="text-[10px] text-zinc-500 font-mono">Актив: ${lastDate}</span>
+                            </div>
+                        </div>
+                        <span class="text-[10px] bg-red-950/60 border border-red-900/50 text-red-300 px-2 py-0.5 rounded-md font-mono">
+                            ${u.deviceId || 'ID'}
+                        </span>
+                    `;
+                    adminUsersList.appendChild(userRow);
+                });
+            } catch (err) {
+                console.error(err);
+                adminUsersList.innerHTML = '<div class="text-xs text-red-400 text-center py-4">Ошибка загрузки списка</div>';
+            }
+        });
+
+        closeAdminMenuBtn.addEventListener('click', () => adminMenuModal.classList.add('hidden'));
+        adminMenuModal.addEventListener('click', (e) => {
+            if (e.target === adminMenuModal) adminMenuModal.classList.add('hidden');
+        });
+
         function getUserTheme(uid) {
             if (uid === currentUser?.uid || uid === currentDeviceId) return USER_THEMES[0];
             let hash = 0;
@@ -575,8 +678,6 @@
 
                 docs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
-                // Логика автоудаления: если появилось новое сообщение от собеседника,
-                // удаляем последнее сообщение текущего пользователя
                 if (lastMessageCount > 0 && docs.length > lastMessageCount) {
                     const lastMsg = docs[docs.length - 1];
                     const isLastMsgMine = lastMsg.deviceId === currentDeviceId || lastMsg.uid === currentUser?.uid;
@@ -836,6 +937,7 @@
         logoutBtn.addEventListener('click', async () => {
             clearInterval(heartbeatInterval);
             clearInterval(timerInterval);
+            localStorage.removeItem('chat_is_admin');
             await updateOnlineStatus(false);
             window.location.href = window.location.origin + window.location.pathname;
         });
