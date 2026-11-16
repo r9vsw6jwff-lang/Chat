@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Секретный чат</title>
+    <title>Секретный чат с Face ID</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
     <style>
         .red-glow-border { box-shadow: 0 0 20px rgba(220, 38, 38, 0.2); }
         .red-glow-input:focus { box-shadow: 0 0 15px rgba(220, 38, 38, 0.3); }
-        
         .chat-bg-watermark {
             position: relative;
             background-color: #09090b;
@@ -29,10 +29,9 @@
 </head>
 <body class="bg-black text-white h-dvh flex items-center justify-center overflow-hidden font-sans">
 
-    <!-- 1. ЭКРАН АВТОРИЗАЦИИ И СОЗДАНИЯ -->
+    <!-- 1. ЭКРАН АВТОРИЗАЦИИ -->
     <div id="auth-screen" class="w-full h-full flex flex-col justify-center items-center p-4">
         <div class="w-full max-w-md bg-zinc-950 p-8 rounded-3xl red-glow-border text-center flex flex-col items-center">
-            
             <div class="w-16 h-16 rounded-full bg-red-950/60 border border-red-600/50 flex items-center justify-center mb-6 shadow-lg">
                 <i class="fa-solid fa-lock text-red-500 text-2xl"></i>
             </div>
@@ -40,23 +39,21 @@
             <h1 id="auth-title" class="text-2xl font-bold tracking-tight text-white mb-6">Секретный чат</h1>
             
             <form id="auth-form" class="w-full flex flex-col gap-4">
-                <input type="text" id="nickname-input" placeholder="Ваш никнейм" required maxlength="20"
-                    class="w-full bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 text-sm rounded-2xl py-3 px-4 focus:outline-none focus:border-red-600 transition-all font-sans">
+                <input type="text" id="nickname-input" placeholder="Ваш никнейм (уникальный)" required maxlength="20"
+                    class="w-full bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 text-sm rounded-2xl py-3 px-4 focus:outline-none focus:border-red-600 transition-all">
                 
-                <div class="relative w-full">
-                    <input type="password" id="pass1-input" placeholder="Пароль комнаты" required
-                        class="w-full bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 text-sm rounded-2xl py-3 px-4 focus:outline-none focus:border-red-600 red-glow-input transition-all font-sans">
-                </div>
+                <input type="password" id="pass1-input" placeholder="Пароль комнаты" required
+                    class="w-full bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 text-sm rounded-2xl py-3 px-4 focus:outline-none focus:border-red-600 red-glow-input transition-all">
 
                 <div id="create-extra-fields" class="hidden flex flex-col gap-4">
                     <input type="password" id="pass2-input" placeholder="Повторите пароль"
-                        class="w-full bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 text-sm rounded-2xl py-3 px-4 focus:outline-none focus:border-red-600 red-glow-input transition-all font-sans">
+                        class="w-full bg-zinc-900 border border-zinc-700 text-white placeholder-zinc-500 text-sm rounded-2xl py-3 px-4 focus:outline-none focus:border-red-600 red-glow-input transition-all">
                 </div>
                 
                 <button type="submit" id="submit-btn"
                     class="w-full bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-semibold py-3 rounded-2xl transition-all shadow-lg shadow-red-950 flex items-center justify-center gap-2 cursor-pointer mt-2">
-                    <span id="btn-text">Войти</span>
-                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                    <span id="btn-text">Далее (Face ID)</span>
+                    <i class="fa-solid fa-face-viewfinder text-sm"></i>
                 </button>
             </form>
 
@@ -66,14 +63,32 @@
                 </button>
             </div>
 
-            <div id="auth-error" class="hidden mt-4 p-3 bg-red-950/80 border border-red-800 text-red-300 text-xs rounded-xl w-full">
+            <div id="auth-error" class="hidden mt-4 p-3 bg-red-950/80 border border-red-800 text-red-300 text-xs rounded-xl w-full"></div>
+        </div>
+    </div>
+
+    <!-- 1.5 ЭКРАН FACE ID -->
+    <div id="face-id-screen" class="hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 p-4">
+        <div class="w-full max-w-md bg-zinc-950 p-6 rounded-3xl red-glow-border text-center flex flex-col items-center relative">
+            <div class="w-14 h-14 rounded-full bg-red-950/60 border border-red-600/50 flex items-center justify-center mb-3 shadow-lg">
+                <i id="face-status-icon" class="fa-solid fa-camera text-red-500 text-xl"></i>
             </div>
+            <h2 id="face-id-title" class="text-lg font-bold text-white mb-1">Проверка Face ID</h2>
+            <p id="face-id-status" class="text-xs text-zinc-400 mb-5 min-h-[32px] flex items-center justify-center">Подготовка нейросети...</p>
+
+            <div class="relative w-64 h-64 rounded-2xl overflow-hidden border-2 border-red-600/60 mb-5 bg-black shadow-2xl">
+                <video id="face-video" autoplay playsinline muted class="w-full h-full object-cover transform -scale-x-100"></video>
+                <div id="face-frame-border" class="absolute inset-0 border-4 border-red-500/40 rounded-2xl pointer-events-none animate-pulse"></div>
+            </div>
+
+            <button type="button" id="cancel-face-btn" class="w-full bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs py-3 rounded-xl transition-all cursor-pointer">
+                Отменить и вернуться
+            </button>
         </div>
     </div>
 
     <!-- 2. ГЛАВНОЕ ОКНО ЧАТА -->
     <div id="chat-screen" class="hidden w-full h-full flex flex-col bg-black max-w-4xl border-x border-zinc-900 shadow-2xl overflow-hidden relative">
-        
         <div class="h-16 border-b border-zinc-900 px-3 md:px-6 flex items-center justify-between bg-zinc-950/90 backdrop-blur z-10">
             <div class="flex items-center gap-2 md:gap-3">
                 <button id="admin-menu-btn" type="button" class="hidden text-[11px] bg-red-600 border border-red-500 text-white px-3 py-1.5 rounded-full hover:bg-red-700 transition-colors cursor-pointer font-semibold flex items-center gap-1.5 shadow-md shadow-red-950">
@@ -82,21 +97,17 @@
 
                 <div class="flex items-center gap-2 md:gap-3">
                     <div class="flex flex-col">
-                        <div class="flex items-center gap-2">
-                            <h2 id="chat-room-title" class="font-bold text-base text-white truncate max-w-[120px] sm:max-w-[180px]">Чат</h2>
-                        </div>
-                        <div id="timer-container-wrapper" class="flex items-center gap-1.5 text-[11px] font-mono text-red-500 font-semibold mt-0.5" title="Время до полного удаления всех сообщений">
+                        <h2 id="chat-room-title" class="font-bold text-base text-white truncate max-w-[120px] sm:max-w-[180px]">Чат</h2>
+                        <div id="timer-container-wrapper" class="flex items-center gap-1.5 text-[11px] font-mono text-red-500 font-semibold mt-0.5" title="Автоочистка каждые 5 секунд">
                             <i class="fa-regular fa-clock text-[10px]"></i>
-                            <span id="wipe-timer">06:00:00</span>
+                            <span id="wipe-timer">00:00:05</span>
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-2">
-                        <span id="online-badge" class="hidden text-[11px] bg-emerald-950 border border-emerald-800 text-emerald-400 px-2.5 py-0.5 rounded-full items-center gap-1.5 font-medium">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                            <span id="online-count">1</span>/20
-                        </span>
-                    </div>
+                    <span id="online-badge" class="hidden text-[11px] bg-emerald-950 border border-emerald-800 text-emerald-400 px-2.5 py-0.5 rounded-full items-center gap-1.5 font-medium">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span id="online-count">1</span>/20
+                    </span>
                 </div>
             </div>
             
@@ -124,12 +135,11 @@
             <span>Администратор чата сейчас в этой комнате</span>
         </div>
 
-        <div id="messages-container" class="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col gap-4 chat-bg-watermark">
-        </div>
+        <div id="messages-container" class="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col gap-4 chat-bg-watermark"></div>
 
         <div id="voice-recording-bar" class="hidden bg-red-950/90 border-t border-red-900/50 px-4 py-2 flex items-center justify-between text-xs text-red-300 z-10">
             <div class="flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
                 <span>Идет запись... <b id="recording-timer" class="font-mono ml-1">0:00</b></span>
             </div>
             <button id="cancel-voice-btn" type="button" class="text-zinc-400 hover:text-white px-3 py-1 rounded-full bg-zinc-900 cursor-pointer">Отмена</button>
@@ -160,59 +170,44 @@
         </div>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО: Меню Администратора -->
+    <!-- МОДАЛЬНЫЕ ОКНА -->
     <div id="admin-menu-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden">
         <div class="bg-zinc-950 border border-zinc-800 rounded-3xl p-5 sm:p-6 w-full max-w-lg relative shadow-2xl flex flex-col max-h-[85vh]">
-            <button id="close-admin-menu-btn" type="button" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl cursor-pointer">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <button id="close-admin-menu-btn" type="button" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
             <div class="flex items-center justify-center gap-2 mb-1">
                 <i class="fa-solid fa-crown text-red-500"></i>
                 <h3 class="text-lg font-bold text-white text-center">Панель Администратора</h3>
             </div>
-            
-            <div class="flex-1 overflow-y-auto border border-zinc-800 rounded-2xl p-3 bg-zinc-900/40 flex flex-col gap-2.5 mt-4" id="admin-users-list">
-            </div>
+            <div class="flex-1 overflow-y-auto border border-zinc-800 rounded-2xl p-3 bg-zinc-900/40 flex flex-col gap-2.5 mt-4" id="admin-users-list"></div>
         </div>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО: Мой Профиль -->
     <div id="my-profile-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden">
         <div class="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 w-full max-w-sm relative shadow-2xl">
-            <button id="close-my-profile-modal-btn" type="button" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl cursor-pointer">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <button id="close-my-profile-modal-btn" type="button" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
             <h3 class="text-lg font-bold text-white mb-4 text-center">Мой Профиль</h3>
-            
             <div class="flex flex-col items-center gap-4 mb-6">
-                <img id="my-avatar-preview" src="" 
-                     class="w-24 h-24 rounded-full object-cover border-2 border-red-600 shadow-lg">
-                
+                <img id="my-avatar-preview" src="" class="w-24 h-24 rounded-full object-cover border-2 border-red-600 shadow-lg">
                 <label class="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs py-2 px-4 rounded-xl border border-zinc-800 cursor-pointer transition-all flex items-center gap-2">
-                    <i class="fa-solid fa-camera text-red-500"></i> Изменить фотографию
+                    <i class="fa-solid fa-camera text-red-500"></i> Изменить фото
                     <input type="file" id="avatar-file-input" accept="image/*" class="hidden">
                 </label>
             </div>
-
             <div class="mb-6">
                 <label class="text-xs text-zinc-400 mb-2 block">Никнейм:</label>
-                <input type="text" id="profile-name-input" placeholder="Введите имя..." value="Пользователь" maxlength="20"
-                       class="w-full bg-zinc-900 border border-zinc-800 text-sm text-white px-4 py-2.5 rounded-xl focus:outline-none focus:border-red-600 transition-all font-medium">
+                <input type="text" id="profile-name-input" placeholder="Введите имя..." value="Пользователь" maxlength="20" class="w-full bg-zinc-900 border border-zinc-800 text-sm text-white px-4 py-2.5 rounded-xl focus:outline-none focus:border-red-600 transition-all font-medium">
             </div>
-
-            <button type="button" id="save-profile-btn" class="w-full bg-red-600 hover:bg-red-700 text-white text-sm py-3 rounded-xl font-medium transition-all shadow-lg shadow-red-950 cursor-pointer">
-                Сохранить настройки
-            </button>
+            <button type="button" id="save-profile-btn" class="w-full bg-red-600 hover:bg-red-700 text-white text-sm py-3 rounded-xl font-medium transition-all shadow-lg shadow-red-950 cursor-pointer">Сохранить</button>
         </div>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО: Профиль участника -->
     <div id="user-profile-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden">
         <div class="bg-zinc-950 border border-zinc-800 rounded-3xl p-6 w-full max-w-sm text-center relative shadow-2xl">
-            <button id="close-profile-modal-btn" type="button" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl cursor-pointer">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+            <button id="close-profile-modal-btn" type="button" class="absolute top-4 right-4 text-zinc-400 hover:text-white text-xl cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
             <img id="profile-modal-avatar" src="" class="w-24 h-24 rounded-full object-cover border-2 border-red-600 mx-auto mb-4 shadow-lg">
+            <div class="w-24 h-24 rounded-full bg-zinc-900 border-2 border-red-600 mx-auto mb-4 items-center justify-center hidden">
+                <i class="fa-solid fa-user text-3xl text-zinc-400"></i>
+            </div>
             <div class="flex items-center justify-center gap-2 mb-1">
                 <h3 id="profile-modal-name" class="text-xl font-bold text-white">...</h3>
                 <span id="profile-modal-admin-badge" class="hidden text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full font-semibold">Админ чата</span>
@@ -221,15 +216,11 @@
         </div>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО: Просмотр Фото -->
     <div id="image-view-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md hidden cursor-pointer">
-        <button id="close-image-modal-btn" type="button" class="absolute top-4 right-4 text-white text-2xl z-10 p-2 cursor-pointer">
-            <i class="fa-solid fa-xmark"></i>
-        </button>
+        <button id="close-image-modal-btn" type="button" class="absolute top-4 right-4 text-white text-2xl z-10 p-2 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
         <img id="modal-full-image" src="" class="max-w-full max-h-full rounded-2xl object-contain shadow-2xl red-glow-border">
     </div>
 
-    <!-- Уведомление (Toast) -->
     <div id="toast-notification" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-red-950 border border-red-600 text-white text-xs px-4 py-2.5 rounded-full shadow-2xl hidden transition-all">
         <span id="toast-text"></span>
     </div>
@@ -238,13 +229,15 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, onSnapshot, addDoc, deleteDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-messaging.js";
 
         const ADMIN_LOGIN = "Admin";
         const ADMIN_PASSWORD = "846881";
 
-        const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+        // Таймер автоочистки: 5 секунд (5000 мс)
+        const WIPE_INTERVAL_MS = 5 * 1000;
         const MAX_ROOM_USERS = 20;
+        // Порог строгости Face ID (0.55 — оптимально: пропускает владельца при разном свете, блокирует чужих)
+        const FACE_MATCH_THRESHOLD = 0.55;
 
         const firebaseConfig = {
             apiKey: "AIzaSyA5WJE3afisQ-Ue6w8EwLq1Bnz-Gjq5ICI",
@@ -252,29 +245,12 @@
             projectId: "chat-14abe",
             storageBucket: "chat-14abe.firebasestorage.app",
             messagingSenderId: "412240777047",
-            appId: "1:412240777047:web:dcda1e2736c09e2777b812",
-            measurementId: "G-JR38HQMKH3"
+            appId: "1:412240777047:web:dcda1e2736c09e2777b812"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        
-        // Инициализация Cloud Messaging для пуш-уведомлений
-        let messaging = null;
-        try {
-            messaging = getMessaging(app);
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/firebase-messaging-sw.js')
-                    .then((registration) => {
-                        console.log('Service Worker зарегистрирован:', registration);
-                    }).catch((err) => {
-                        console.log('Ошибка регистрации Service Worker:', err);
-                    });
-            }
-        } catch (e) {
-            console.log('Messaging не поддерживается в этом браузере', e);
-        }
 
         const USER_THEMES = [
             { bg: 'bg-red-950/70', border: 'border-red-600/50', text: 'text-red-400' },
@@ -293,6 +269,7 @@
         let heartbeatInterval = null;
         let isAdmin = false;
         let isInAdminChatView = false;
+        let pendingAuthData = null;
 
         let unsubRoomCycle = null;
         let unsubOnlineUsers = null;
@@ -329,11 +306,8 @@
             const now = new Date();
             const isToday = date.toDateString() === now.toDateString();
             const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            if (isToday) {
-                return `сегодня в ${timeStr}`;
-            }
-            const dateStr = date.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' });
-            return `${dateStr} в ${timeStr}`;
+            if (isToday) return `сегодня в ${timeStr}`;
+            return `${date.toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' })} в ${timeStr}`;
         }
 
         let isLoginMode = true;
@@ -348,24 +322,31 @@
             authError.classList.add('hidden');
             if (isLoginMode) {
                 authTitle.textContent = "Секретный чат";
-                btnText.textContent = "Войти";
+                btnText.textContent = "Далее (Face ID)";
                 extraFields.classList.add('hidden');
                 toggleBtn.textContent = "Создать новый чат (до 20 человек)";
             } else {
                 authTitle.textContent = "Создать свой чат";
-                btnText.textContent = "Создать";
+                btnText.textContent = "Далее (Face ID)";
                 extraFields.classList.remove('hidden');
                 toggleBtn.textContent = "Уже есть пароль? Войти в чат";
             }
         };
 
         const authScreen = document.getElementById('auth-screen');
+        const faceIdScreen = document.getElementById('face-id-screen');
         const chatScreen = document.getElementById('chat-screen');
         const authForm = document.getElementById('auth-form');
         const nicknameInput = document.getElementById('nickname-input');
         const pass1Input = document.getElementById('pass1-input');
         const pass2Input = document.getElementById('pass2-input');
         const authError = document.getElementById('auth-error');
+        const faceVideo = document.getElementById('face-video');
+        const faceIdStatus = document.getElementById('face-id-status');
+        const faceIdTitle = document.getElementById('face-id-title');
+        const faceStatusIcon = document.getElementById('face-status-icon');
+        const faceFrameBorder = document.getElementById('face-frame-border');
+        const cancelFaceBtn = document.getElementById('cancel-face-btn');
 
         const openProfileBtn = document.getElementById('open-profile-btn');
         const myProfileModal = document.getElementById('my-profile-modal');
@@ -409,8 +390,6 @@
         if (savedProfiles[currentDeviceId]) {
             myProfile = savedProfiles[currentDeviceId];
             nicknameInput.value = myProfile.displayName;
-        } else {
-            myProfile.displayName = `Участник #${currentDeviceId.substring(4, 8)}`;
         }
         updateUIProfileData();
 
@@ -424,18 +403,11 @@
             } else {
                 headerProfileIcon.classList.remove('hidden');
                 headerAvatarPreview.classList.add('hidden');
-                
                 const canvas = document.createElement('canvas');
-                canvas.width = 100;
-                canvas.height = 100;
+                canvas.width = 100; canvas.height = 100;
                 const ctx = canvas.getContext('2d');
                 ctx.fillStyle = '#18181b';
                 ctx.fillRect(0, 0, 100, 100);
-                ctx.fillStyle = '#ef4444';
-                ctx.font = 'bold 50px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText((myProfile.displayName || 'Я')[0].toUpperCase(), 50, 50);
                 myAvatarPreview.src = canvas.toDataURL();
             }
         }
@@ -444,11 +416,8 @@
             const name = profileNameInput.value.trim();
             if (name) myProfile.displayName = name;
             updateUIProfileData();
-
-            try { savedProfiles = JSON.parse(localStorage.getItem('chat_profiles_v20') || '{}'); } catch(e){}
             savedProfiles[currentDeviceId] = myProfile;
             localStorage.setItem('chat_profiles_v20', JSON.stringify(savedProfiles));
-
             if (currentUser && currentRoomId) {
                 await updateOnlineStatus(true);
                 await registerGlobalUser(true);
@@ -460,10 +429,7 @@
         avatarFileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            if (file.size > 5 * 1024 * 1024) {
-                showToast('Максимальный размер фото 5 МБ');
-                return;
-            }
+            if (file.size > 5 * 1024 * 1024) return showToast('Максимальный размер фото 5 МБ');
             const reader = new FileReader();
             reader.onload = (evt) => {
                 myProfile.photoURL = evt.target.result;
@@ -475,16 +441,167 @@
         openProfileBtn.addEventListener('click', () => myProfileModal.classList.remove('hidden'));
         closeMyProfileModalBtn.addEventListener('click', () => myProfileModal.classList.add('hidden'));
 
+        // --- БИОМЕТРИЧЕСКИЙ FACE ID (СВЕРКА СЛЕПКА ЛИЦА) ---
+        let faceDetectionInterval = null;
+        let faceStream = null;
+        let modelsLoaded = false;
+
         authForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); 
-            
+            e.preventDefault();
             const nickname = nicknameInput.value.trim();
             const pass1 = pass1Input.value.trim();
             const pass2 = pass2Input.value.trim();
 
             if (!nickname || !pass1) return showToast("Заполните никнейм и пароль");
-
             authError.classList.add('hidden');
+
+            if (!isLoginMode && pass1 !== pass2) {
+                authError.textContent = "Пароли не совпадают!";
+                authError.classList.remove('hidden');
+                return;
+            }
+
+            pendingAuthData = { nickname, pass1 };
+
+            // Анонимная авторизация Firebase нужна до чтения face_profiles
+            if (!auth.currentUser) {
+                try {
+                    await signInAnonymously(auth);
+                } catch (err) {
+                    authError.textContent = "Ошибка соединения с сервером авторизации.";
+                    authError.classList.remove('hidden');
+                    return;
+                }
+            }
+
+            authScreen.classList.add('hidden');
+            faceIdScreen.classList.remove('hidden');
+            await startBiometricFaceId(nickname);
+        });
+
+        async function startBiometricFaceId(nickname) {
+            faceStatusIcon.className = "fa-solid fa-camera text-red-500 text-xl";
+            faceFrameBorder.className = "absolute inset-0 border-4 border-red-500/40 rounded-2xl pointer-events-none animate-pulse";
+            faceIdStatus.className = "text-xs text-zinc-400 mb-5 min-h-[32px] flex items-center justify-center";
+
+            try {
+                if (!modelsLoaded) {
+                    faceIdStatus.textContent = "Загрузка нейросети Face ID (первый запуск ~5 сек)...";
+                    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
+                    await Promise.all([
+                        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                    ]);
+                    modelsLoaded = true;
+                }
+
+                faceIdStatus.textContent = "Проверка базы лиц для никнейма...";
+                const faceKey = await sha256(nickname.toLowerCase());
+                const faceDocRef = doc(db, 'face_profiles', faceKey);
+                const faceSnap = await getDoc(faceDocRef);
+                const savedDescriptor = faceSnap.exists() ? new Float32Array(faceSnap.data().descriptor) : null;
+
+                if (savedDescriptor) {
+                    faceIdTitle.textContent = "Подтверждение личности";
+                    faceIdStatus.textContent = `Аккаунт «${nickname}» защищён. Посмотрите в камеру...`;
+                } else {
+                    faceIdTitle.textContent = "Регистрация Face ID";
+                    faceIdStatus.textContent = `Новый ник «${nickname}». Смотрите прямо в камеру для записи лица...`;
+                }
+
+                faceStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                faceVideo.srcObject = faceStream;
+
+                if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+
+                let failedAttempts = 0;
+
+                faceDetectionInterval = setInterval(async () => {
+                    if (!faceVideo || faceVideo.readyState < 2) return;
+
+                    // Извлекаем 128-мерный вектор черт лица
+                    const detection = await faceapi
+                        .detectSingleFace(faceVideo, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
+                        .withFaceLandmarks()
+                        .withFaceDescriptor();
+
+                    if (!detection) return;
+
+                    if (!savedDescriptor) {
+                        // РЕГИСТРАЦИЯ НОВОГО ЛИЦА
+                        clearInterval(faceDetectionInterval);
+                        faceIdStatus.textContent = "Сохраняем биометрический слепок лица...";
+                        await setDoc(faceDocRef, {
+                            nickname: nickname,
+                            descriptor: Array.from(detection.descriptor),
+                            createdAt: Date.now()
+                        });
+
+                        faceStatusIcon.className = "fa-solid fa-check text-emerald-400 text-xl";
+                        faceFrameBorder.className = "absolute inset-0 border-4 border-emerald-500 rounded-2xl pointer-events-none";
+                        faceIdStatus.className = "text-xs text-emerald-400 font-semibold mb-5 min-h-[32px] flex items-center justify-center";
+                        faceIdStatus.textContent = "Face ID успешно привязан к вашему нику!";
+
+                        setTimeout(() => {
+                            stopFaceIdCamera();
+                            proceedAfterFaceId();
+                        }, 1000);
+                    } else {
+                        // СРАВНЕНИЕ ЛИЦА С ЭТАЛОНОМ
+                        const distance = faceapi.euclideanDistance(detection.descriptor, savedDescriptor);
+                        if (distance < FACE_MATCH_THRESHOLD) {
+                            clearInterval(faceDetectionInterval);
+                            faceStatusIcon.className = "fa-solid fa-check text-emerald-400 text-xl";
+                            faceFrameBorder.className = "absolute inset-0 border-4 border-emerald-500 rounded-2xl pointer-events-none";
+                            faceIdStatus.className = "text-xs text-emerald-400 font-semibold mb-5 min-h-[32px] flex items-center justify-center";
+                            faceIdStatus.textContent = "Лицо подтверждено! Вход разрешён.";
+
+                            setTimeout(() => {
+                                stopFaceIdCamera();
+                                proceedAfterFaceId();
+                            }, 900);
+                        } else {
+                            failedAttempts++;
+                            faceStatusIcon.className = "fa-solid fa-triangle-exclamation text-red-500 text-xl";
+                            faceIdStatus.className = "text-xs text-red-400 font-semibold mb-5 min-h-[32px] flex items-center justify-center";
+                            faceIdStatus.textContent = `Чужое лицо! Доступ к аккаунту «${nickname}» запрещён.`;
+
+                            if (failedAttempts >= 6) {
+                                clearInterval(faceDetectionInterval);
+                                setTimeout(() => {
+                                    stopFaceIdCamera();
+                                    authError.textContent = "Ошибка Face ID: лицо не совпадает с владельцем аккаунта.";
+                                    authError.classList.remove('hidden');
+                                    authScreen.classList.remove('hidden');
+                                }, 1200);
+                            }
+                        }
+                    }
+                }, 900);
+            } catch (err) {
+                console.error(err);
+                faceIdStatus.textContent = "Нет доступа к камере. Разрешите камеру в браузере.";
+            }
+        }
+
+        function stopFaceIdCamera() {
+            if (faceDetectionInterval) clearInterval(faceDetectionInterval);
+            if (faceStream) {
+                faceStream.getTracks().forEach(track => track.stop());
+                faceStream = null;
+            }
+            faceIdScreen.classList.add('hidden');
+        }
+
+        cancelFaceBtn.addEventListener('click', () => {
+            stopFaceIdCamera();
+            authScreen.classList.remove('hidden');
+        });
+
+        async function proceedAfterFaceId() {
+            if (!pendingAuthData) return;
+            const { nickname, pass1 } = pendingAuthData;
             isAdmin = (nickname === ADMIN_LOGIN && pass1 === ADMIN_PASSWORD);
 
             try {
@@ -495,54 +612,24 @@
                     const snap = await getDoc(roomRef);
                     if (!snap.exists()) {
                         const now = Date.now();
-                        await setDoc(roomRef, {
-                            createdAt: now,
-                            resetAt: now + SIX_HOURS_MS,
-                            creatorId: currentDeviceId,
-                            maxUsers: MAX_ROOM_USERS
-                        });
+                        await setDoc(roomRef, { createdAt: now, resetAt: now + WIPE_INTERVAL_MS, creatorId: currentDeviceId, maxUsers: MAX_ROOM_USERS });
                     }
                 } else if (!isLoginMode) {
-                    if (pass1 !== pass2) {
-                        authError.textContent = "Пароли не совпадают! Проверьте ввод.";
-                        authError.classList.remove('hidden');
-                        return;
-                    }
                     const snap = await getDoc(roomRef);
                     if (snap.exists()) {
                         authError.textContent = "Такой пароль уже занят. Придумайте другой или нажмите «Войти».";
                         authError.classList.remove('hidden');
+                        authScreen.classList.remove('hidden');
                         return;
                     }
                     const now = Date.now();
-                    await setDoc(roomRef, {
-                        createdAt: now,
-                        resetAt: now + SIX_HOURS_MS,
-                        creatorId: currentDeviceId,
-                        maxUsers: MAX_ROOM_USERS
-                    });
+                    await setDoc(roomRef, { createdAt: now, resetAt: now + WIPE_INTERVAL_MS, creatorId: currentDeviceId, maxUsers: MAX_ROOM_USERS });
                 } else {
                     const snap = await getDoc(roomRef);
                     if (!snap.exists()) {
-                        authError.textContent = "Чат с таким паролем не найден! Проверьте пароль или создайте новый.";
+                        authError.textContent = "Чат с таким паролем не найден!";
                         authError.classList.remove('hidden');
-                        return;
-                    }
-
-                    const usersSnap = await getDocs(collection(db, 'rooms', roomId, 'users'));
-                    const now = Date.now();
-                    let activeCount = 0;
-                    let alreadyInRoom = false;
-
-                    usersSnap.forEach(u => {
-                        const d = u.data();
-                        if (d.deviceId === currentDeviceId) alreadyInRoom = true;
-                        else if (d.isOnline && (now - (d.lastSeen || 0) < 35000)) activeCount++;
-                    });
-
-                    if (activeCount >= MAX_ROOM_USERS && !alreadyInRoom) {
-                        authError.textContent = "В этом чате уже максимум участников (20 из 20).";
-                        authError.classList.remove('hidden');
+                        authScreen.classList.remove('hidden');
                         return;
                     }
                 }
@@ -553,44 +640,20 @@
 
                 savedProfiles[currentDeviceId] = myProfile;
                 localStorage.setItem('chat_profiles_v20', JSON.stringify(savedProfiles));
-                localStorage.setItem('chat_is_admin', isAdmin ? 'true' : 'false');
 
-                if (!auth.currentUser) {
-                    await signInAnonymously(auth);
-                } else {
-                    enterChatRoom(auth.currentUser);
-                }
+                enterChatRoom(auth.currentUser);
             } catch (err) {
                 console.error(err);
                 authError.textContent = "Ошибка подключения к базе данных.";
                 authError.classList.remove('hidden');
+                authScreen.classList.remove('hidden');
             }
-        });
-
-        onAuthStateChanged(auth, (user) => {
-            if (user && currentRoomId && !currentUser) {
-                enterChatRoom(user);
-            }
-        });
+        }
 
         async function enterChatRoom(user) {
             currentUser = user;
             authScreen.classList.add('hidden');
             chatScreen.classList.remove('hidden');
-
-            // Запрос разрешения на отправку уведомлений браузера
-            if (messaging) {
-                Notification.requestPermission().then(async (permission) => {
-                    if (permission === 'granted') {
-                        try {
-                            const token = await getToken(messaging, { vapidKey: 'УКАЖИТЕ_ВАШ_VAPID_КЛЮЧ_ЕСЛИ_ЕСТЬ' });
-                            console.log('FCM Token:', token);
-                        } catch (err) {
-                            console.log('Не удалось получить токен уведомлений', err);
-                        }
-                    }
-                });
-            }
 
             if (isAdmin) {
                 adminMenuBtn.classList.remove('hidden');
@@ -601,7 +664,7 @@
                 adminMenuBtn.classList.add('hidden');
                 onlineBadge.classList.remove('hidden');
                 leaveRoomBtn.classList.add('hidden');
-                if (timerContainerWrapper) timerContainerWrapper.style.display = 'flex';
+                timerContainerWrapper.style.display = 'flex';
                 await switchRoom(currentRoomId, "Чат");
             }
 
@@ -619,9 +682,9 @@
 
         function showAdminMenuOnly() {
             chatRoomTitle.textContent = "Панель Админа";
-            if (timerContainerWrapper) timerContainerWrapper.style.display = 'none';
+            timerContainerWrapper.style.display = 'none';
             leaveRoomBtn.classList.add('hidden');
-            messagesContainer.innerHTML = '<div class="text-xs text-zinc-500 text-center py-12">Нажмите кнопку «Меню» слева вверху, чтобы выбрать пользователя и зайти в чат.</div>';
+            messagesContainer.innerHTML = '<div class="text-xs text-zinc-500 text-center py-12">Нажмите кнопку «Меню» слева вверху, чтобы выбрать пользователя и прочитать его переписку.</div>';
         }
 
         async function switchRoom(newRoomId, roomTitleText = "Чат") {
@@ -631,7 +694,6 @@
 
             currentRoomId = newRoomId;
             chatRoomTitle.textContent = roomTitleText;
-            lastMessageCount = 0;
 
             if (unsubRoomCycle) unsubRoomCycle();
             if (unsubOnlineUsers) unsubOnlineUsers();
@@ -645,12 +707,7 @@
             const snap = await getDoc(roomRef);
             if (!snap.exists()) {
                 const now = Date.now();
-                await setDoc(roomRef, {
-                    createdAt: now,
-                    resetAt: now + SIX_HOURS_MS,
-                    creatorId: currentDeviceId,
-                    maxUsers: MAX_ROOM_USERS
-                });
+                await setDoc(roomRef, { createdAt: now, resetAt: now + WIPE_INTERVAL_MS, creatorId: currentDeviceId, maxUsers: MAX_ROOM_USERS });
             }
 
             await updateOnlineStatus(true);
@@ -663,9 +720,8 @@
 
         async function registerGlobalUser(isOnline = true) {
             if (!currentUser) return;
-            const globalUserRef = doc(db, 'global_users', currentDeviceId);
             try {
-                await setDoc(globalUserRef, {
+                await setDoc(doc(db, 'global_users', currentDeviceId), {
                     deviceId: currentDeviceId,
                     displayName: myProfile.displayName,
                     photoURL: myProfile.photoURL,
@@ -674,59 +730,54 @@
                     currentRoomId: isAdmin && !isInAdminChatView ? null : (currentRoomId || null),
                     isAdmin: isAdmin
                 }, { merge: true });
-            } catch (err) {
-                console.error("Ошибка сохранения глобального пользователя:", err);
-            }
+            } catch (err) { console.error(err); }
         }
 
         function listenToRoomCycle() {
             const roomRef = doc(db, 'rooms', currentRoomId);
-            unsubRoomCycle = onSnapshot(roomRef, async (snap) => {
+            unsubRoomCycle = onSnapshot(roomRef, (snap) => {
                 if (!snap.exists()) return;
                 const data = snap.data();
-                roomResetAt = data.resetAt || (Date.now() + SIX_HOURS_MS);
-
-                if (!timerInterval && !isAdmin) {
-                    startCountdownTimer();
-                }
+                roomResetAt = data.resetAt || (Date.now() + WIPE_INTERVAL_MS);
+                if (!timerInterval && !isAdmin) startCountdownTimer();
             });
         }
 
+        // --- ТАЙМЕР ОЧИСТКИ 5 СЕКУНД (ТОЛЬКО ДЛЯ ОБЫЧНЫХ ПОЛЬЗОВАТЕЛЕЙ) ---
         function startCountdownTimer() {
             if (isAdmin) return;
-
             timerInterval = setInterval(async () => {
                 if (!roomResetAt) return;
                 const remaining = roomResetAt - Date.now();
-
                 if (remaining <= 0) {
                     wipeTimerEl.textContent = "00:00:00";
                     await wipeAllMessagesAndResetTimer();
                 } else {
-                    const hrs = Math.floor(remaining / (1000 * 60 * 60));
-                    const mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-                    const secs = Math.floor((remaining % (1000 * 60)) / 1000);
-                    wipeTimerEl.textContent = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                    const secs = Math.ceil(remaining / 1000);
+                    wipeTimerEl.textContent = `00:00:${String(secs).padStart(2, '0')}`;
                 }
-            }, 1000);
+            }, 500);
         }
 
         let isWiping = false;
         async function wipeAllMessagesAndResetTimer() {
-            if (isAdmin) return;
-            if (isWiping || !currentRoomId) return;
+            if (isAdmin || isWiping || !currentRoomId) return;
             isWiping = true;
             try {
                 const messagesCol = collection(db, 'rooms', currentRoomId, 'messages');
                 const snap = await getDocs(messagesCol);
                 const deletePromises = [];
-                snap.forEach(d => deletePromises.push(deleteDoc(doc(db, 'rooms', currentRoomId, 'messages', d.id))));
+                snap.forEach(d => {
+                    // Удаляем сообщения обычных пользователей (сообщения админа не трогаем)
+                    if (!d.data().isAdmin) {
+                        deletePromises.push(deleteDoc(doc(db, 'rooms', currentRoomId, 'messages', d.id)));
+                    }
+                });
                 await Promise.all(deletePromises);
 
-                const newResetAt = Date.now() + SIX_HOURS_MS;
+                const newResetAt = Date.now() + WIPE_INTERVAL_MS;
                 roomResetAt = newResetAt;
                 await setDoc(doc(db, 'rooms', currentRoomId), { resetAt: newResetAt }, { merge: true });
-                showToast("Время вышло! История чата полностью очищена.");
             } catch (e) {
                 console.error(e);
             } finally {
@@ -736,9 +787,8 @@
 
         async function updateOnlineStatus(isOnline) {
             if (!currentUser || !currentRoomId || (isAdmin && !isInAdminChatView)) return;
-            const userRef = doc(db, 'rooms', currentRoomId, 'users', currentDeviceId);
             try {
-                await setDoc(userRef, {
+                await setDoc(doc(db, 'rooms', currentRoomId, 'users', currentDeviceId), {
                     uid: currentUser.uid,
                     deviceId: currentDeviceId,
                     displayName: myProfile.displayName,
@@ -747,15 +797,12 @@
                     lastSeen: Date.now(),
                     isAdmin: isAdmin
                 }, { merge: true });
-            } catch (err) {
-                console.error(err);
-            }
+            } catch (err) { console.error(err); }
         }
 
         function listenToOnlineUsers() {
             if (!currentRoomId || isAdmin) return;
-            const usersCol = collection(db, 'rooms', currentRoomId, 'users');
-            unsubOnlineUsers = onSnapshot(usersCol, (snapshot) => {
+            unsubOnlineUsers = onSnapshot(collection(db, 'rooms', currentRoomId, 'users'), (snapshot) => {
                 const now = Date.now();
                 let activeCount = 0;
                 let adminPresent = false;
@@ -772,15 +819,12 @@
                 });
 
                 onlineCount.textContent = Math.max(1, activeCount);
-
-                if (!isAdmin && adminPresent) {
-                    adminInRoomBanner.classList.remove('hidden');
-                } else {
-                    adminInRoomBanner.classList.add('hidden');
-                }
+                if (!isAdmin && adminPresent) adminInRoomBanner.classList.remove('hidden');
+                else adminInRoomBanner.classList.add('hidden');
             });
         }
 
+        // --- ПАНЕЛЬ АДМИНИСТРАТОРА ---
         adminMenuBtn.addEventListener('click', () => {
             if (!isAdmin) return;
             adminMenuModal.classList.remove('hidden');
@@ -788,15 +832,13 @@
         });
 
         function loadAdminUsersList() {
-            adminUsersList.innerHTML = '<div class="text-xs text-zinc-500 text-center py-6">Загрузка списка пользователей сайта...</div>';
-
+            adminUsersList.innerHTML = '<div class="text-xs text-zinc-500 text-center py-6">Загрузка списка пользователей...</div>';
             if (unsubGlobalUsers) unsubGlobalUsers();
 
             unsubGlobalUsers = onSnapshot(collection(db, 'global_users'), (globalUsersSnap) => {
                 adminUsersList.innerHTML = '';
-
                 if (globalUsersSnap.empty) {
-                    adminUsersList.innerHTML = '<div class="text-xs text-zinc-500 text-center py-6">На сайте еще никто не зарегистрировался</div>';
+                    adminUsersList.innerHTML = '<div class="text-xs text-zinc-500 text-center py-6">Пользователей пока нет</div>';
                     return;
                 }
 
@@ -816,12 +858,8 @@
                     const isSelf = u.deviceId === currentDeviceId;
 
                     const statusHtml = userIsOnline
-                        ? `<span class="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
-                               <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> в сети
-                           </span>`
-                        : `<span class="flex items-center gap-1.5 text-[11px] text-zinc-500">
-                               <span class="w-2 h-2 rounded-full bg-zinc-600"></span> не в сети (${formatLastSeen(u.lastActive)})
-                           </span>`;
+                        ? `<span class="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> в сети</span>`
+                        : `<span class="flex items-center gap-1.5 text-[11px] text-zinc-500"><span class="w-2 h-2 rounded-full bg-zinc-600"></span> не в сети (${formatLastSeen(u.lastActive)})</span>`;
 
                     const userRow = document.createElement('div');
                     userRow.className = 'flex items-center justify-between gap-2 bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 p-3 rounded-2xl transition-all';
@@ -829,9 +867,10 @@
                     userRow.innerHTML = `
                         <div class="flex items-center gap-3 min-w-0">
                             <div class="relative flex-shrink-0">
-                                <img src="${u.photoURL || 'https://placehold.co/100x100/18181b/ef4444?text=User'}" 
-                                     class="w-10 h-10 rounded-full object-cover border border-zinc-700"
-                                     onerror="this.src='https://placehold.co/100x100/18181b/ef4444?text=User'">
+                                <img src="${u.photoURL || ''}" class="w-10 h-10 rounded-full object-cover border border-zinc-700 ${!u.photoURL ? 'hidden' : ''}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-700 items-center justify-center ${u.photoURL ? 'hidden' : 'flex'}">
+                                    <i class="fa-solid fa-user text-sm text-zinc-400"></i>
+                                </div>
                                 <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-zinc-900 ${userIsOnline ? 'bg-emerald-500' : 'bg-zinc-600'}"></span>
                             </div>
                             <div class="flex flex-col min-w-0">
@@ -852,36 +891,23 @@
                     `;
 
                     if (!isSelf) {
-                        const openChatBtn = userRow.querySelector('.open-user-chat-btn');
-                        openChatBtn.addEventListener('click', async () => {
+                        userRow.querySelector('.open-user-chat-btn').addEventListener('click', async () => {
                             const targetRoomId = u.currentRoomId || `direct_${u.deviceId}`;
                             adminMenuModal.classList.add('hidden');
                             if (unsubGlobalUsers) unsubGlobalUsers();
-                            
                             isInAdminChatView = true;
                             leaveRoomBtn.classList.remove('hidden');
                             await switchRoom(targetRoomId, `Чат: ${u.displayName || 'Пользователь'}`);
-                            showToast(`Вы зашли в чат с ${u.displayName || 'пользователем'}`);
+                            showToast(`Вы вошли в комнату пользователя ${u.displayName}`);
                         });
                     }
-
                     adminUsersList.appendChild(userRow);
                 });
-            }, (err) => {
-                console.error(err);
-                adminUsersList.innerHTML = '<div class="text-xs text-red-400 text-center py-4">Ошибка загрузки списка</div>';
             });
         }
 
-        closeAdminMenuBtn.addEventListener('click', () => {
-            adminMenuModal.classList.add('hidden');
-            if (unsubGlobalUsers && !isAdmin) unsubGlobalUsers();
-        });
-        adminMenuModal.addEventListener('click', (e) => {
-            if (e.target === adminMenuModal) {
-                adminMenuModal.classList.add('hidden');
-            }
-        });
+        closeAdminMenuBtn.addEventListener('click', () => adminMenuModal.classList.add('hidden'));
+        adminMenuModal.addEventListener('click', (e) => { if (e.target === adminMenuModal) adminMenuModal.classList.add('hidden'); });
 
         function getUserTheme(uid) {
             if (uid === currentUser?.uid || uid === currentDeviceId) return USER_THEMES[0];
@@ -890,12 +916,11 @@
             return USER_THEMES[(Math.abs(hash) % 4) + 1];
         }
 
-        let lastMessageCount = 0;
         function listenToMessages() {
             if (!currentRoomId) return;
             const messagesCol = collection(db, 'rooms', currentRoomId, 'messages');
 
-            unsubMessages = onSnapshot(messagesCol, async (snapshot) => {
+            unsubMessages = onSnapshot(messagesCol, (snapshot) => {
                 const now = Date.now();
                 const docs = [];
 
@@ -903,7 +928,7 @@
                     const data = docSnap.data();
                     const createdAt = data.createdAt || 0;
 
-                    if (!isAdmin && (now - createdAt > SIX_HOURS_MS)) {
+                    if (!isAdmin && !data.isAdmin && (now - createdAt > WIPE_INTERVAL_MS)) {
                         deleteDoc(doc(db, 'rooms', currentRoomId, 'messages', docSnap.id)).catch(() => {});
                     } else {
                         docs.push({ id: docSnap.id, ...data });
@@ -911,24 +936,6 @@
                 });
 
                 docs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-
-                if (!isAdmin && lastMessageCount > 0 && docs.length > lastMessageCount) {
-                    const lastMsg = docs[docs.length - 1];
-                    const isLastMsgMine = lastMsg.deviceId === currentDeviceId || lastMsg.uid === currentUser?.uid;
-
-                    if (!isLastMsgMine) {
-                        for (let i = docs.length - 2; i >= 0; i--) {
-                            const prevMsg = docs[i];
-                            const isPrevMsgMine = prevMsg.deviceId === currentDeviceId || prevMsg.uid === currentUser?.uid;
-                            if (isPrevMsgMine) {
-                                deleteDoc(doc(db, 'rooms', currentRoomId, 'messages', prevMsg.id)).catch(console.error);
-                                break;
-                            }
-                        }
-                    }
-                }
-                lastMessageCount = docs.length;
-
                 messagesContainer.innerHTML = '';
                 docs.forEach(msg => renderMessage(msg));
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -944,8 +951,7 @@
             
             const messageWrapper = document.createElement('div');
             messageWrapper.className = `flex items-start gap-2.5 ${isMe ? 'flex-row-reverse' : ''}`;
-
-            const formattedTime = msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+            const formattedTime = msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
 
             let contentHTML = '';
             if (msg.type === 'voice') {
@@ -959,28 +965,25 @@
                             <span class="text-xs font-medium text-white">Голосовое</span>
                             <span class="text-[10px] text-zinc-400">Нажмите чтобы послушать</span>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             } else if (msg.type === 'image') {
                 contentHTML = `
                     <div class="overflow-hidden rounded-xl cursor-pointer">
-                        <img src="${msg.imageData}" class="chat-photo-thumbnail max-w-xs max-h-80 rounded-xl object-cover hover:opacity-90 transition-opacity" alt="Фотография">
-                    </div>
-                `;
+                        <img src="${msg.imageData}" class="chat-photo-thumbnail max-w-xs max-h-80 rounded-xl object-cover hover:opacity-90 transition-opacity" alt="Фото">
+                    </div>`;
             } else {
                 contentHTML = `<p class="text-sm text-white break-words">${escapeHTML(msg.text)}</p>`;
             }
 
             const adminBadgeHTML = msgIsAdmin
-                ? `<span class="inline-flex items-center gap-1 text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full font-bold shadow-sm">
-                       <i class="fa-solid fa-crown text-[9px]"></i> Админ чата
-                   </span>`
+                ? `<span class="inline-flex items-center gap-1 text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full font-bold shadow-sm"><i class="fa-solid fa-crown text-[9px]"></i> Админ чата</span>`
                 : '';
 
             messageWrapper.innerHTML = `
-                <img src="${msg.photoURL || 'https://placehold.co/100x100/18181b/ef4444?text=User'}" 
-                     class="w-8 h-8 rounded-full object-cover border ${msgIsAdmin ? 'border-red-500' : 'border-zinc-800'} flex-shrink-0 mt-1 cursor-pointer hover:scale-105 transition-transform"
-                     onerror="this.src='https://placehold.co/100x100/18181b/ef4444?text=User'">
+                <div class="w-8 h-8 rounded-full overflow-hidden border ${msgIsAdmin ? 'border-red-500' : 'border-zinc-800'} flex-shrink-0 mt-1 flex items-center justify-center bg-zinc-900 cursor-pointer hover:scale-105 transition-transform">
+                    ${msg.photoURL ? `<img src="${msg.photoURL}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">` : ''}
+                    <i class="fa-solid fa-user text-sm text-zinc-400 ${msg.photoURL ? 'hidden' : ''}"></i>
+                </div>
                 <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%]">
                     <div class="flex items-center gap-1.5 mb-1 px-1 ${isMe ? 'flex-row-reverse' : ''}">
                         <span class="msg-author-name text-[11px] font-semibold ${msgIsAdmin ? 'text-red-300' : 'text-zinc-400'} cursor-pointer hover:text-white">${escapeHTML(msg.displayName || 'Пользователь')}</span>
@@ -997,11 +1000,10 @@
                 const playBtn = messageWrapper.querySelector('.voice-play-btn');
                 const audioEl = messageWrapper.querySelector('audio');
                 const icon = playBtn.querySelector('i');
-
                 playBtn.addEventListener('click', () => {
                     if (audioEl.paused) {
                         document.querySelectorAll('audio').forEach(a => { if (a !== audioEl) { a.pause(); a.currentTime = 0; } });
-                        audioEl.play().catch(e => console.error(e));
+                        audioEl.play().catch(console.error);
                         icon.className = 'fa-solid fa-pause text-xs';
                     } else {
                         audioEl.pause();
@@ -1027,8 +1029,7 @@
                 };
                 openUserProfileModal(userData);
             };
-
-            messageWrapper.querySelector('img').addEventListener('click', openAction);
+            messageWrapper.querySelector('.w-8.h-8').addEventListener('click', openAction);
             messageWrapper.querySelector('.msg-author-name').addEventListener('click', openAction);
 
             messagesContainer.appendChild(messageWrapper);
@@ -1036,8 +1037,7 @@
 
         async function sendNewMessage(payload) {
             if (!currentRoomId) return;
-            const messagesCol = collection(db, 'rooms', currentRoomId, 'messages');
-            await addDoc(messagesCol, {
+            await addDoc(collection(db, 'rooms', currentRoomId, 'messages'), {
                 uid: currentUser.uid,
                 deviceId: currentDeviceId,
                 displayName: myProfile.displayName,
@@ -1051,14 +1051,9 @@
         chatPhotoInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            if (file.size > 30 * 1024 * 1024) {
-                showToast('Максимальный размер фото 30 МБ');
-                return;
-            }
+            if (file.size > 30 * 1024 * 1024) return showToast('Максимальный размер фото 30 МБ');
             const reader = new FileReader();
-            reader.onload = async (evt) => {
-                await sendNewMessage({ imageData: evt.target.result, type: 'image' });
-            };
+            reader.onload = async (evt) => { await sendNewMessage({ imageData: evt.target.result, type: 'image' }); };
             reader.readAsDataURL(file);
             chatPhotoInput.value = '';
         });
@@ -1071,16 +1066,9 @@
             await sendNewMessage({ text: text, type: 'text' });
         });
 
-        voiceBtn.addEventListener('click', () => {
-            if (isRecording) stopRecordingAndSend();
-            else startRecording();
-        });
-
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let recordingInterval = null;
-        let recordingSeconds = 0;
-        let isRecording = false;
+        // --- ГОЛОСОВЫЕ СООБЩЕНИЯ ---
+        let mediaRecorder = null, audioChunks = [], recordingInterval = null, recordingSeconds = 0, isRecording = false;
+        voiceBtn.addEventListener('click', () => { if (isRecording) stopRecordingAndSend(); else startRecording(); });
 
         async function startRecording() {
             try {
@@ -1088,10 +1076,8 @@
                 let options = {};
                 if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) options = { mimeType: 'audio/webm;codecs=opus' };
                 else if (MediaRecorder.isTypeSupported('audio/mp4')) options = { mimeType: 'audio/mp4' };
-
                 mediaRecorder = new MediaRecorder(stream, options);
                 audioChunks = [];
-
                 mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.start(100);
                 isRecording = true;
@@ -1104,25 +1090,18 @@
                 recordingTimer.textContent = "0:00";
                 recordingInterval = setInterval(() => {
                     recordingSeconds++;
-                    const mins = Math.floor(recordingSeconds / 60);
-                    const secs = recordingSeconds % 60;
-                    recordingTimer.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                    recordingTimer.textContent = `${Math.floor(recordingSeconds / 60)}:${recordingSeconds % 60 < 10 ? '0' : ''}${recordingSeconds % 60}`;
                 }, 1000);
-            } catch (err) {
-                showToast("Нет доступа к микрофону");
-            }
+            } catch (err) { showToast("Нет доступа к микрофону"); }
         }
 
         function stopRecordingAndSend() {
             if (!mediaRecorder) return;
             mediaRecorder.onstop = async () => {
-                const mime = mediaRecorder.mimeType || 'audio/webm';
-                const audioBlob = new Blob(audioChunks, { type: mime });
+                const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
                 const reader = new FileReader();
                 reader.readAsDataURL(audioBlob);
-                reader.onloadend = async () => {
-                    await sendNewMessage({ audioData: reader.result, type: 'voice' });
-                };
+                reader.onloadend = async () => { await sendNewMessage({ audioData: reader.result, type: 'voice' }); };
                 mediaRecorder.stream.getTracks().forEach(track => track.stop());
                 resetVoiceUI();
             };
@@ -1148,19 +1127,25 @@
         }
 
         function openUserProfileModal(user) {
-            document.getElementById('profile-modal-avatar').src = user.photoURL || 'https://placehold.co/100x100/18181b/ef4444?text=User';
+            const avatarImg = document.getElementById('profile-modal-avatar');
+            const avatarFallback = avatarImg.nextElementSibling;
+            avatarImg.src = user.photoURL || '';
             document.getElementById('profile-modal-name').textContent = user.displayName || 'Пользователь';
             
             const adminBadge = document.getElementById('profile-modal-admin-badge');
-            if (user.isAdmin) {
-                adminBadge.classList.remove('hidden');
+            if (user.isAdmin) adminBadge.classList.remove('hidden');
+            else adminBadge.classList.add('hidden');
+
+            if (user.photoURL) {
+                avatarImg.style.display = 'block';
+                avatarFallback.style.display = 'none';
             } else {
-                adminBadge.classList.add('hidden');
+                avatarImg.style.display = 'none';
+                avatarFallback.style.display = 'flex';
             }
 
             const statusEl = document.getElementById('profile-modal-status');
             const isOnline = user.isOnline && (Date.now() - (user.lastSeen || 0) < 35000);
-
             if (isOnline) {
                 statusEl.className = 'text-xs text-emerald-400 font-medium mt-1';
                 statusEl.textContent = 'в сети';
@@ -1168,7 +1153,6 @@
                 statusEl.className = 'text-xs text-zinc-500 mt-1';
                 statusEl.textContent = user.lastSeen ? `не в сети (был ${formatLastSeen(user.lastSeen)})` : 'не в сети';
             }
-
             userProfileModal.classList.remove('hidden');
         }
 
@@ -1181,32 +1165,23 @@
                 leaveRoomBtn.classList.add('hidden');
                 showAdminMenuOnly();
                 showToast('Вы вышли из чата пользователя');
-            } else {
-                clearInterval(heartbeatInterval);
-                clearInterval(timerInterval);
-                await updateOnlineStatus(false);
-                await registerGlobalUser(false);
-                window.location.href = window.location.origin + window.location.pathname;
             }
         });
 
-        document.getElementById('close-profile-modal-btn').addEventListener('click', () => userProfileModal.classList.add('hidden'));
-        imageViewModal.addEventListener('click', () => imageViewModal.classList.add('hidden'));
-        document.getElementById('close-image-modal-btn').addEventListener('click', () => imageViewModal.classList.add('hidden'));
+        document.getElementById('close-profile-modal-btn').addEventListener('click', () => userProfileModal.classList.remove('hidden'));
+        imageViewModal.addEventListener('click', () => imageViewModal.classList.remove('hidden'));
+        document.getElementById('close-image-modal-btn').addEventListener('click', () => imageViewModal.classList.remove('hidden'));
 
         logoutBtn.addEventListener('click', async () => {
             clearInterval(heartbeatInterval);
             clearInterval(timerInterval);
-            localStorage.removeItem('chat_is_admin');
             await updateOnlineStatus(false);
             await registerGlobalUser(false);
-            window.location.href = window.location.origin + window.location.pathname;
+            window.location.reload();
         });
 
         function escapeHTML(str) {
-            return (str || '').replace(/[&<>"']/g, function(m) {
-                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
-            });
+            return (str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
         }
     </script>
 </body>
